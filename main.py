@@ -56,7 +56,7 @@ def roa_zip_chars(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile):
     return dict(data)
 
 
-def sync_yaml(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile):
+def sync_yaml(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile, interactive=False):
     yaml_state: dict[str, list[str]] = {}
     if not os.path.isfile('sort.yaml'):
         yaml.dump(yaml_state, roa_zip_chars(order_roa, categories_roa))
@@ -77,14 +77,21 @@ def sync_yaml(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile):
     all_oar_reprs: set[str] = {
         repr(c) for c in order_roa.groups['characters']
     }
-    # Remove unsubscribed characters
-    yaml_state['_removed'] = yaml_state.get('_removed', [])
+    # Remove unsubscribed or duplicate characters
+    yaml_seen_reprs = set()
     for label, group in yaml_state.items():
         if label == '_removed': continue
         for repr_ in [*group]:
+            if repr_ in yaml_seen_reprs:
+                print(repr_, "appears twice, removing duplicate.")
+                yaml_state[label].remove(repr_)
+                continue
+
+            yaml_seen_reprs.add(repr_)
             if repr_ not in all_oar_reprs:
                 print(repr_, "not in oar, removing.")
-                group.remove(repr_)
+                yaml_state[label].remove(repr_)
+                yaml_state['_removed'] = yaml_state.get('_removed', [])
                 yaml_state['_removed'].append(repr_)
             yaml_state[label] = sorted(group)
 
@@ -94,7 +101,8 @@ def sync_yaml(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile):
         print(r, "not in yaml, adding.")
         yaml_state['unsorted'].append(r)
 
-    edit_interactive(yaml_state)
+    if interactive:
+        edit_interactive(yaml_state)
 
     # Save yaml state
     with open("sort.yaml", "w", encoding="utf-8") as fp:
@@ -107,6 +115,7 @@ def sync_yaml(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile):
         if len(group) < 1:
             continue
         new_cat = RoaCategory(len(characters), label.encode('utf-8'))
+        print(new_cat)
         categories_roa.categories.append(new_cat)
         for repr_ in group:
             try:
@@ -125,7 +134,16 @@ if __name__ == '__main__':
     order_roa = RoaOrderFile(ROA_DIR / 'order.roa')
     categories_roa = RoaCategoriesFile(ROA_DIR / 'categories.roa')
 
-    sync_yaml(order_roa, categories_roa)
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="()",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
+    parser.add_argument("--interactive", "-i", action="store_true")
+    args = parser.parse_args()
+
+    sync_yaml(order_roa, categories_roa, interactive=args.interactive)
     # alphabetize_characters(order_roa)
     # dump = pprint.pformat(dict(order_roa.groups))
     # print(dump)

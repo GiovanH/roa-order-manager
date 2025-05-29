@@ -8,7 +8,7 @@ class BinReader():
 
     def read_null(self, count=1):
         assert isinstance(self.data, bytes)
-        for c in range(count):
+        for _ in range(count):
             assert self.data[self.p:self.p+1] == b'\x00'
             self.p += 1
 
