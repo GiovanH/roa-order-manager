@@ -1,14 +1,14 @@
+import ast
 from collections import OrderedDict
 from dataclasses import dataclass
 import functools
-import struct
-from typing import ClassVar, List, Mapping, Optional
-from typing_extensions import TypeAlias
+from typing import ClassVar, Mapping
 from pathlib import Path
 import os
 import traceback
 import configparser
 
+from bin import BinReader, BinWriter
 
 class RoaEntry():
     def __init__(self, value: bytes) -> None:
@@ -19,7 +19,7 @@ class RoaEntry():
         return Path(self.value.decode()).name
 
     def __repr__(self):
-        return f"<{self.__class__.__name__} {self.id} {self.name} {self.author}>"
+        return f"<{self.name!r} {self.id} by {self.author!r}>"
 
     def decode(self) -> str:
         return self.value.decode('utf-8')
@@ -40,12 +40,13 @@ class RoaEntry():
                 parser.read_file(fp)
             return parser
         except configparser.Error as e:
-            return {}
+            traceback.print_exc()
+            return parser
 
     @functools.cached_property
     def name(self):
         try:
-            return self.ini['general'].get('name')
+            return self.ini['general'].get('name')[1:-1] # type: ignore
         except configparser.Error:
             print(self.ini_path)
             traceback.print_exc()
@@ -56,35 +57,20 @@ class RoaEntry():
     @functools.cached_property
     def author(self):
         try:
-            return self.ini['general'].get('author')
+            return self.ini['general'].get('author')[1:-1] # type: ignore
         except configparser.Error:
             print(self.ini_path)
             traceback.print_exc()
             return 'ERROR'
-        except KeyError:
+        except (KeyError, TypeError):
             return 'ERROR'
 
     @functools.cached_property
     def version(self) -> float:
         try:
-            return float(eval(self.ini['general']['version']))
+            return float(ast.literal_eval(self.ini['general']['version']))
         except (KeyError, ValueError):
             return -1
-
-
-def encode_le(number: int) -> bytes:
-    return struct.pack('<H', number)
-
-
-def encode_entry_list(strings: List[RoaEntry]) -> bytes:
-    return b''.join(s.value + b'\x00' for s in strings)
-
-
-def read_up_to_null(buffer: bytes, start_index: int) -> Optional[tuple[int, bytes]]:
-    for i in range(start_index, len(buffer)):
-        if buffer[i] == 0x00:
-            return i, buffer[start_index:i]
-    return None
 
 
 class RoaOrderFile:
@@ -97,7 +83,6 @@ class RoaOrderFile:
 
     def __init__(self, roa_path: Path) -> None:
         self.groups: dict[str, list[RoaEntry]] = OrderedDict()
-
         self.roa_path: Path = roa_path
 
         with open(roa_path, 'rb') as fp:
@@ -107,14 +92,7 @@ class RoaOrderFile:
             raise ValueError("Bad input file")
 
         self.load_bytes(data)
-
         assert data == self.encode_bytes()
-
-    @staticmethod
-    def read_preamble_count(view: bytes, i: int) -> Optional[int]:
-        if view[i:i+2] == b'\x00\x01' and view[i+4:i+6] == b'\x00\x00':
-            return struct.unpack('<H', view[i+2:i+4])[0]
-        return None
 
     def check_file_header(self, file: bytes) -> bool:
         return file[:9] == self.header
@@ -124,19 +102,13 @@ class RoaOrderFile:
         groups = []
         curr_group = []
         expected_count = 0
-        i: int = 0
 
-        while i < len(view) - 1:
-            res = read_up_to_null(view, i)
-            if res is None:
-                break
+        reader = BinReader(data)
 
-            next_i, string = res
-            i = next_i
+        while reader.p < len(view) - 1:
+            string = reader.read_str()
 
             if string == self.header:
-                # Beginning of list
-
                 # Close previous list
                 if len(curr_group) != expected_count:
                     print(f"Warning: Expected {expected_count} but got {len(curr_group)} elems!")
@@ -145,13 +117,12 @@ class RoaOrderFile:
                 # Begin next list
                 curr_group = []
 
-                expected_count = self.read_preamble_count(view, i)
-                if expected_count is None:
-                    raise ValueError("Parse error (expected preamble after order.roa)")
-                i += 6
+                assert reader.read_raw(2) == b'\x00\x01'
+                expected_count = reader.read_int()
+                reader.read_null(2)
             else:
                 curr_group.append(RoaEntry(string))
-                i += 1
+                reader.read_null()
 
         if len(curr_group) != expected_count:
             print(f"Warning: Expected {expected_count} but got {len(curr_group)} elems!")
@@ -166,24 +137,15 @@ class RoaOrderFile:
         for i, group in enumerate(groups):
             self.groups[self.group_labels[i]] = group
 
-    def encode_group(self, group) -> bytes:
-        blob_parts: list[bytes] = []
-
-        blob_parts.append(self.header)
-        blob_parts.append(b'\x00\x01')
-        blob_parts.append(encode_le(len(group)))
-        blob_parts.append(b'\x00\x00')
-        blob_parts.append(encode_entry_list(group))
-
-        return b''.join(blob_parts)
-
     def encode_bytes(self) -> bytes:
-        blob_parts = []
+        writer = BinWriter()
 
         for group in self.groups.values():
-            blob_parts.append(self.encode_group(group))
+            writer.write_str(self.header)
+            writer.parts.append(b'\x01')
+            writer.write_strlist([g.value for g in group])
 
-        return b''.join(blob_parts)
+        return writer.blob
 
     def save_file(self) -> None:
         encoded: bytes = self.encode_bytes()
@@ -214,49 +176,26 @@ class RoaCategoriesFile:
         assert data == self.encode_bytes()
 
     def load_bytes(self, data: bytes):
-        view: bytes = data
-        p: int = 0
-
         self.categories.clear()
-
-        def _read_int() -> int:
-            nonlocal p
-            val = struct.unpack('<H', view[p:p+2])[0]
-            p += 2
-            return val
-
-        def _read_null():
-            nonlocal p
-            assert view[p:p+1] == b'\x00'
-            p += 1
-
-        def _read_str() -> bytes:
-            nonlocal p
-            res = read_up_to_null(view, p)
-            assert res is not None
-            next_i, val = res
-            p = next_i
-            return val
-
-        expected_count = _read_int()
+        reader = BinReader(data)
+        expected_count = reader.read_int()
 
         for _ in range(expected_count):
-            category_index = _read_int()
-            category_label = _read_str()
+            c_index = reader.read_int()
+            c_label = reader.read_str()
 
-            self.categories.append(RoaCategory(index=category_index, label=category_label))
-            _read_null()
-
+            self.categories.append(RoaCategory(index=c_index, label=c_label))
+            reader.read_null()
 
     def encode_bytes(self) -> bytes:
-        blob_parts = []
+        writer = BinWriter()
 
-        blob_parts.append(encode_le(len(self.categories)))
+        writer.write_int(len(self.categories))
         for c in self.categories:
-            blob_parts.append(encode_le(c.index))
-            blob_parts.append(c.label + b'\x00')
+            writer.write_int(c.index)
+            writer.write_str(c.label)
 
-        return b''.join(blob_parts)
+        return writer.blob
 
     def save_file(self) -> None:
         encoded: bytes = self.encode_bytes()
