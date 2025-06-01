@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 import itertools
 import os
 import pprint
@@ -38,7 +38,7 @@ def set_groups_by_alpha(order_roa, categories_roa):
 
 
 def roa_zip_chars(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile) -> dict[str, list[RoaEntry]]:
-    data = defaultdict(list)
+    data: dict = defaultdict(list)
     category = ''
 
     cats_by_index = {
@@ -50,7 +50,10 @@ def roa_zip_chars(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile) ->
         category = cats_by_index.get(i, category)
         data[category].append(c)
 
-    return dict(data)
+    return OrderedDict([
+        (k, v)
+        for k, v in data.items()
+    ])
 
 def load_yaml_state(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile):
     yaml_state: dict[str, list[str]] = {}
