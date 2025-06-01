@@ -1,2 +1,2 @@
-kivy[base]
+pyinstaller
 prompt_toolkit
