@@ -14,7 +14,7 @@ yaml.width = 4096
 
 def sort_name(entry: RoaEntry):
     try:
-        return entry.name.upper()
+        return entry.name.upper() # type: ignore
     except:
         return 'ERROR'
 
