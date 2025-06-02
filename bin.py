@@ -1,6 +1,7 @@
 import struct
 from typing import Optional
 
+
 class BinReader():
     def __init__(self, data: bytes) -> None:
         self.data = data
@@ -9,17 +10,17 @@ class BinReader():
     def read_null(self, count=1):
         assert isinstance(self.data, bytes)
         for _ in range(count):
-            assert self.data[self.p:self.p+1] == b'\x00'
+            assert self.data[self.p:self.p + 1] == b'\x00'
             self.p += 1
 
     def read_raw(self, length) -> bytes:
-        val = self.data[self.p:self.p+length]
+        val = self.data[self.p:self.p + length]
         self.p += length
         return val
 
     def read_int(self) -> int:
         assert isinstance(self.data, bytes)
-        val = struct.unpack('<H', self.data[self.p:self.p+2])[0]
+        val = struct.unpack('<H', self.data[self.p:self.p + 2])[0]
         self.p += 2
         return val
 
@@ -37,6 +38,7 @@ class BinReader():
         next_i, val = res
         self.p = next_i
         return val
+
 
 class BinWriter():
     def __init__(self) -> None:

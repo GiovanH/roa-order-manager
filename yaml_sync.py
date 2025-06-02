@@ -1,28 +1,30 @@
-from collections import OrderedDict, defaultdict
 import itertools
 import os
 import pprint
+from collections import OrderedDict, defaultdict
+
 import ruamel.yaml
 
-from roa import RoaCategoriesFile, RoaEntry, RoaOrderFile, RoaCategory
-
-
+from roa import RoaCategoriesFile, RoaCategory, RoaEntry, RoaOrderFile
 
 yaml = ruamel.yaml.YAML(typ='unsafe')
 yaml.default_flow_style = False
 yaml.width = 4096
 
+
 def sort_name(entry: RoaEntry):
     try:
-        return entry.name.upper() # type: ignore
+        return entry.name.upper()  # type: ignore
     except:
         return 'ERROR'
+
 
 def alphabetize_characters(order_roa):
     for k, l in order_roa.groups.items():
         if k != 'characters':
             sorted_group = sorted(order_roa.groups[k], key=sort_name)
             order_roa.groups[k] = sorted_group
+
 
 def set_groups_by_alpha(order_roa, categories_roa):
     categories_roa.categories.clear()
@@ -55,6 +57,7 @@ def roa_zip_chars(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile) ->
         for k, v in data.items()
     ])
 
+
 def load_yaml_state(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile):
     yaml_state: dict[str, list[str]] = {}
     if not os.path.isfile('sort.yaml'):
@@ -64,6 +67,7 @@ def load_yaml_state(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile):
         yaml_state = yaml.load(fp)
 
     return yaml_state
+
 
 def sync_characters_to_yaml(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile):
     yaml_state = load_yaml_state(order_roa, categories_roa)
@@ -84,13 +88,13 @@ def sync_characters_to_yaml(order_roa: RoaOrderFile, categories_roa: RoaCategori
         for repr_ in [*group]:
             if repr_ in yaml_seen_reprs:
                 print(repr_, "appears twice, removing duplicate.")
-                yaml_state[label].remove(repr_)
+                group.remove(repr_)
                 continue
 
             yaml_seen_reprs.add(repr_)
             if repr_ not in all_oar_reprs:
                 print(repr_, "not in oar, removing.")
-                yaml_state[label].remove(repr_)
+                group.remove(repr_)
                 yaml_state['_removed'] = yaml_state.get('_removed', [])
                 yaml_state['_removed'].append(repr_)
             yaml_state[label] = sorted(group)

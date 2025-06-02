@@ -4,6 +4,7 @@ from prompt_toolkit import completion
 
 import pprint
 
+
 def GroupCompleter(yaml_state: dict[str, list[str]]) -> completion.WordCompleter:
     groups = [*yaml_state.keys()]
     return completion.WordCompleter(groups, ignore_case=True, match_middle=False)

@@ -2,7 +2,28 @@ Command-line utility for organizing Rivals of Aether's order/category files.
 
 Rivals of Aether includes built-in tools to re-order your character list and add groupings, but it is bad.
 
-## Usage
+## GUI Usage
+
+`gui.py`/`reroader.exe` are a graphical interface for character organization.
+
+### Complete
+
+- Reordering categories
+- Renaming categories
+- Adding and deleting categories
+- Reordering characters
+- Moving characters between categories
+- GUI Stage list organization
+- GUI Buddy organization
+- GUI Skin organization
+- Dark blockchain
+
+### TODO
+
+- More character info (author, icon)
+    - see <https://stackoverflow.com/questions/49307497/python-tkinter-treeview-add-an-image-as-a-column-value>
+
+## CLI Usage
 
 This tool synchronizes a local yaml file with the current Rivals of Aether installation.
 

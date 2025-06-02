@@ -10,6 +10,7 @@ import configparser
 
 from bin import BinReader, BinWriter
 
+
 class RoaEntry():
     def __init__(self, value: bytes) -> None:
         self.value: bytes = value
@@ -39,14 +40,14 @@ class RoaEntry():
             with open(filename, 'r', encoding='utf-8') as fp:
                 parser.read_file(fp)
             return parser
-        except configparser.Error as e:
+        except configparser.Error:
             traceback.print_exc()
             return parser
 
     @functools.cached_property
     def name(self):
         try:
-            return self.ini['general'].get('name')[1:-1] # type: ignore
+            return self.ini['general'].get('name')[1:-1]  # type: ignore
         except configparser.Error:
             print(self.ini_path)
             traceback.print_exc()
@@ -57,7 +58,7 @@ class RoaEntry():
     @functools.cached_property
     def author(self):
         try:
-            return self.ini['general'].get('author')[1:-1] # type: ignore
+            return self.ini['general'].get('author')[1:-1]  # type: ignore
         except configparser.Error:
             print(self.ini_path)
             traceback.print_exc()
@@ -157,10 +158,12 @@ class RoaOrderFile:
         with open(self.roa_path, 'wb') as fp:
             fp.write(encoded)
 
+
 @dataclass
 class RoaCategory():
     index: int
     label: bytes
+
 
 class RoaCategoriesFile:
     def __init__(self, roa_path: Path) -> None:
