@@ -3,13 +3,13 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 from typing import Any, Generator
+from tkinter import messagebox
 
 from gui_pages import CharacterManagerFrame, DrivenFrame, ListManagerFrame
 from roa import RoaCategoriesFile, RoaCategory, RoaEntry, RoaOrderFile
 from yaml_sync import roa_zip_chars
 
 ROA_DIR = Path(f"{os.environ['LOCALAPPDATA']}/RivalsofAether/workshop")
-
 
 class MainApp(tk.Tk):
     def __init__(
@@ -30,6 +30,8 @@ class MainApp(tk.Tk):
         self.load_state_from_roa()
 
         self.initwindow()
+
+        self.protocol("WM_DELETE_WINDOW", lambda: None)
         self.mainloop()
 
     def initwindow(self):
@@ -46,35 +48,44 @@ class MainApp(tk.Tk):
             self.notebook.add(frame, text=simple_list.capitalize())
             self.childframes.append(frame)
 
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        # self.grid_columnconfigure(0, weight=1)
+        # self.grid_rowconfigure(2, weight=1)
 
-        self.notebook.grid(row=1, sticky=tk.NSEW)
+        frame_btns = self.frame_btns()
 
-        frame_btns = tk.Frame()
+        lab_context_label = ttk.Label(self, textvariable=self.text_status, relief=tk.GROOVE)
+
+        frame_btns.pack(fill='x', side=tk.TOP)
+        self.notebook.pack(fill='both', expand=1)
+        lab_context_label.pack(fill='x', side=tk.BOTTOM)
+
+    def frame_btns(self) -> tk.Frame:
+        frame_btns = tk.Frame(background='yellow')
 
         btn_export = ttk.Button(
-            frame_btns, text="Reload discarding changes",
+            frame_btns, text="🔄 Reload discarding changes",
             command=self.load_state_from_roa)
-        btn_export.grid(row=0, column=0, sticky=tk.EW)
+        btn_export.grid(row=0, column=0, sticky=tk.E)
 
-        self.bind("<Control-S>", self.save_state_to_roas)
+        self.bind_all("<Control-S>", self.save_state_to_roas)
         btn_export = ttk.Button(
-            frame_btns, text="Export to ROA",
+            frame_btns, text="💾 Export to ROA",
             command=self.save_state_to_roas)
-        btn_export.grid(row=0, column=1, sticky=tk.EW)
+        btn_export.grid(row=0, column=1, sticky=tk.E)
 
         db = tk.BooleanVar()
         tk.Checkbutton(
             frame_btns,
             text='Dark blockchain',
             variable=db
-        ).grid(row=0, column=2, sticky=tk.E)
+        ).grid(row=0, column=2, sticky=tk.EW)
+        self.grid_columnconfigure(2, weight=1)
 
-        frame_btns.grid(row=2, sticky=tk.EW)
-
-        lab_context_label = ttk.Label(self, textvariable=self.text_status, relief=tk.GROOVE)
-        lab_context_label.grid(row=3, sticky=tk.EW)
+        btn_export = ttk.Button(
+            frame_btns, text="❌ Cancel discarding changes",
+            command=self.destroy)
+        btn_export.grid(row=0, column=3, sticky=tk.E)
+        return frame_btns
 
     def log(self, line) -> None:
         line = str(line)

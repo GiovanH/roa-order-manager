@@ -32,7 +32,7 @@ class RoaEntry():
 
     def image_path(self) -> Path:
         if self.type == 'characters':
-            return Path(self.value.decode()) / 'hud.png'
+            return Path(self.value.decode()) / 'result_small.png'
         if self.type == 'buddies':
             return Path(self.value.decode()) / 'icon.png'
         if self.type == 'skins':

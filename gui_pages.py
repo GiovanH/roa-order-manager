@@ -6,7 +6,7 @@ from abc import abstractmethod
 from collections import OrderedDict
 from tkinter import ttk
 from tkinter.simpledialog import askstring
-from typing import Callable
+from typing import Callable, Optional
 # from gui import MainApp
 
 from gui_itemlists import CatInfo, Direction, ItemListFrameCats, ItemListFrameRoa
@@ -143,7 +143,10 @@ class CharacterManagerFrame(DrivenFrame):
 
         self.list_cats.select_items((category_items[0],))
 
-        self.combo_cats.configure(values=[c.label for c in category_items])
+        self.combo_cats.configure(values=[
+            *[c.label for c in category_items],
+            "<NEW>"
+        ])
 
         self.open_selected_category()
 
@@ -232,7 +235,7 @@ class CharacterManagerFrame(DrivenFrame):
         self.grid_rowconfigure(2, weight=0)
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=0)
-        self.grid_columnconfigure(2, weight=1)
+        self.grid_columnconfigure(2, weight=4)
 
         lab_cats = ttk.Label(self, text="Categories")
         lab_cats.grid(row=0, column=0)
@@ -248,7 +251,11 @@ class CharacterManagerFrame(DrivenFrame):
 
         lab_cats = ttk.Label(self, text="Characters")
         lab_cats.grid(row=0, column=2)
-        self.list_chars: ItemListFrameRoa = ItemListFrameRoa(self, multiple=True, icon_size=(48, 32))
+        self.list_chars: ItemListFrameRoa = ItemListFrameRoa(
+            self, multiple=True,
+            icon_size=(79, 31)
+            # icon_size=(48, 32)
+        )
         self.list_chars.grid(row=1, column=2, sticky=tk.NSEW)
         frame_buttons_chars: tk.Frame = self.widget_buttons_chars()
         frame_buttons_chars.grid(row=2, column=2)
@@ -368,13 +375,27 @@ class CharacterManagerFrame(DrivenFrame):
             self.load_gui_from_state()
             self.open_category(new_name)
 
+            return new_name
+        return None
+
     def move_chars_to_combobox_cat(self, event=None):
         self.app.log(event)
         src_cat: str = self.get_selected_category().name
         dest_cat_label: str = self.combo_cats.get()
-        dest_cat: str = {c.label: c.name for c in self.gen_listitems_categories()}[dest_cat_label]
 
-        for char in self.list_chars.selected_items():
+        chars_to_move = self.list_chars.selected_items()
+
+        if dest_cat_label == "<NEW>":
+            dest_cat: Optional[str] = self.add_category()
+            if dest_cat is None:
+                return
+        else:
+            dest_cat = {
+                c.label: c.name for c in
+                self.gen_listitems_categories()
+            }[dest_cat_label]
+
+        for char in chars_to_move:
             self.move_char_to_category(src_cat, dest_cat, char)
 
         self.open_category(src_cat)

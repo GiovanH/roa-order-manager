@@ -65,8 +65,12 @@ class ItemListFrame(tk.Frame, Generic[T]):
         )
         myscroll.config(command=self.tree.yview)
 
-        self.tree.column('#0', width=0, minwidth=icon_size[0] + 20)
+        self.tree.column('#0', width=0, minwidth=icon_size[0] + (20 if icon_size[0] > 0 else 0))
         for i, header in enumerate(self.columns):
+            widths = {
+                'Length': 30
+            }
+            self.tree.column(i, width=widths.get(header, 120), minwidth=40)
             self.tree.heading(column=i, text=header)
 
         self.tree.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
@@ -86,7 +90,7 @@ class ItemListFrame(tk.Frame, Generic[T]):
 
                     continue
                 except tk.TclError as e:
-                    print(item.image_path(), e)
+                    print(item, item.image_path(), e)
 
             self.map_ids[item] = self.tree.insert(
                 '', tk.END,

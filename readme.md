@@ -20,8 +20,10 @@ Rivals of Aether includes built-in tools to re-order your character list and add
 
 ### TODO
 
-- More character info (author, icon)
-    - see <https://stackoverflow.com/questions/49307497/python-tkinter-treeview-add-an-image-as-a-column-value>
+- Better handling of window close action
+- Some very fancy tracking of whether you need to save or not
+- Better window layout
+- More sort options
 
 ## CLI Usage
 
