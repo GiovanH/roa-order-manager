@@ -1,6 +1,7 @@
 import abc
 import os
 import tkinter as tk
+import uuid
 import webbrowser
 from abc import abstractmethod
 from collections import OrderedDict
@@ -8,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from tkinter import ttk
 from tkinter.simpledialog import askstring
-from typing import Any, Callable, Literal, TypeAlias, Union
+from typing import Any, Callable, Literal, Optional, Sequence, TypeAlias, Union
 
 from roa import RoaCategoriesFile, RoaCategory, RoaEntry, RoaOrderFile
 from yaml_sync import roa_zip_chars
@@ -17,6 +18,7 @@ ROA_DIR = Path(f"{os.environ['LOCALAPPDATA']}/RivalsofAether/workshop")
 
 Direction: TypeAlias = Union[Literal[1], Literal[-1]]
 
+# from tkit import MultiColumnListbox
 
 @dataclass
 class ListboxItem():
@@ -25,7 +27,7 @@ class ListboxItem():
 
 
 class Counter():
-    def __init__(self, value: int = 0):
+    def __init__(self, value: int = 0) -> None:
         self.value: int = value
 
     def inc(self) -> int:
@@ -34,7 +36,7 @@ class Counter():
         return last_val
 
 
-def sort_name(entry: RoaEntry):
+def sort_name(entry: RoaEntry) -> str:
     try:
         return entry.name.upper()
     except:
@@ -45,7 +47,8 @@ class ItemListFrame(tk.Frame):
     def __init__(
         self,
         parent,
-        selectmode=tk.SINGLE
+        multiple=False,
+        rowheight: Optional[int] = 20
     ) -> None:
         super().__init__(parent)
         self.items: list[ListboxItem] = []
@@ -53,26 +56,84 @@ class ItemListFrame(tk.Frame):
         myscroll = tk.Scrollbar(self)
         myscroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.listbox = tk.Listbox(
+        columns = ('Value',)
+
+        style_id = f"height{rowheight}.Treeview"
+        s = ttk.Style()
+        s.configure(style_id, rowheight=rowheight)
+
+        self.tree: ttk.Treeview = ttk.Treeview(
             self,
-            relief=tk.GROOVE,
-            selectmode=selectmode,
-            exportselection=False,
-            yscrollcommand=myscroll.set
+            # relief=tk.GROOVE,
+            selectmode=('extended' if multiple else 'browse'),  # type: ignore
+            # exportselection=False,
+            yscrollcommand=myscroll.set,
+            columns=columns,
+            style=style_id
         )
 
-        self.listbox.bind("<Escape>", lambda event: self.listbox.select_clear(0, tk.END))
+        # self.listbox.heading(0, text='Value')
 
-        myscroll.config(command=self.listbox.yview)
+        self.tree.bind("<Escape>", lambda event: self.tree.selection_clear())  # noqa: ARG005
 
-        self.listbox.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        self.tree.column('#0', width=32)
+        for i, header in enumerate(columns):
+            self.tree.heading(column=i, text=header)
+
+        myscroll.config(command=self.tree.yview)
+
+        self.tree.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        self.tree.update_idletasks()
+
+
+    def selected_indexes(self) -> Sequence[int]:
+        return [
+            i
+            for i, item in enumerate(self.tree.get_children(''))
+            if item in self.tree.selection()
+        ]
+
+    def set_selection_indices(self, indexes: Sequence[int]) -> None:
+        items = [
+            item
+            for i, item in enumerate(self.tree.get_children(''))
+            if i in indexes
+        ]
+        self.tree.selection_set(items)
+
+    image_cache = {}
+
+    def photoimage(self, path: str):
+        if path not in self.image_cache:
+            self.image_cache[path] = tk.PhotoImage(file=path)
+        return self.image_cache[path]
 
     def set_items(self, items: list[ListboxItem]):
         self.items = items
-        self.listbox.configure(state=tk.NORMAL)
-        self.listbox.delete(0, self.listbox.size())
-        for i in self.items:
-            self.listbox.insert(tk.END, i.label)
+        for item in items:
+            if isinstance(item.value, RoaEntry) and os.path.isfile(item.value.image_path()):
+                try:
+                    _img = self.photoimage(str(item.value.image_path()))
+                    self.tree.insert('', tk.END, image=_img, values=(item.label,))
+                    continue
+                except tk.TclError as e:
+                    print(item.value.image_path(), e)
+                    pass
+
+            self.tree.insert('', tk.END, values=(item.label,))
+            continue
+
+    def move_item(self, index, direction: Direction):
+        item: ListboxItem = self.items[index]
+
+        raise NotImplementedError()
+        # self.listbox.delete(index)
+        # self.listbox.insert(index + direction, item.label)
+
+        # self.listbox.selection_set(i + direction)
+
+    def bind_select(self, callback):
+        self.tree.bind('<<ListboxSelect>>', callback)
 
     def move_selected_items(self, sel_indexes, direction: Direction) -> list[ListboxItem]:
         selected_items = [self.items[si] for si in sel_indexes]
@@ -85,10 +146,7 @@ class ItemListFrame(tk.Frame):
 
             self.items[i], self.items[i + direction] = self.items[i + direction], self.items[i]
 
-            self.listbox.delete(i)
-            self.listbox.insert(i + direction, item.label)
-
-            self.listbox.selection_set(i + direction)
+            self.move_item(i, direction)
 
         return self.items
 
@@ -117,7 +175,13 @@ class ListManagerFrame(DrivenFrame):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        self.itemlist: ItemListFrame = ItemListFrame(self, selectmode=tk.MULTIPLE)
+        rowheight = 20
+        if self.list_name == 'stages':
+            rowheight = 40
+        if self.list_name == 'buddies':
+            rowheight = 32
+
+        self.itemlist: ItemListFrame = ItemListFrame(self, multiple=True, rowheight=rowheight)
         self.itemlist.grid(row=0, column=0, sticky=tk.NSEW)
 
         frame_buttons_chars = tk.Frame(self)
@@ -144,6 +208,11 @@ class ListManagerFrame(DrivenFrame):
             command=self.open_info
         )
         btn_char_info.grid(row=y.inc(), sticky=tk.EW)
+        btn_char_info = ttk.Button(
+            frame_buttons_chars, text="Open folder",
+            command=self.open_folder
+        )
+        btn_char_info.grid(row=y.inc(), sticky=tk.EW)
         frame_buttons_chars.grid(row=0, column=1)
 
     def gen_listitems(self) -> list[ListboxItem]:
@@ -158,7 +227,7 @@ class ListManagerFrame(DrivenFrame):
 
     def fac_move_selected(self, d: Direction):
         def do_move(event=None):  # noqa: ARG001
-            sel_indexes = self.itemlist.listbox.curselection()
+            sel_indexes = self.itemlist.selected_indexes()
             reordered_items: list[ListboxItem] = self.itemlist.move_selected_items(sel_indexes, d)
             self.app.order_roa.groups[self.list_name] = [i.value for i in reordered_items]
 
@@ -177,13 +246,18 @@ class ListManagerFrame(DrivenFrame):
         return do_move
 
     def open_info(self, event=None):  # noqa: ARG002
-        si, *_ = self.itemlist.listbox.curselection()
+        si, *_ = self.itemlist.selected_indexes()
         char: RoaEntry = self.itemlist.items[si].value
         url = f"steam://openurl/https://steamcommunity.com/sharedfiles/filedetails/?id={char.id}"
         webbrowser.open(url, autoraise=True)
 
+    def open_folder(self, event=None):  # noqa: ARG002
+        si, *_ = self.itemlist.selected_indexes()
+        char: RoaEntry = self.itemlist.items[si].value
+        path = char.value.decode('utf-8')
+        os.startfile(path)  # noqa: S606
 
-class CharacterManagerFrame(DrivenFrame):
+class CharacterManagerFrame(DrivenFrame):  # noqa: PLR0904
     # State management
     def gen_listitems_categories(self) -> list[ListboxItem]:
         return [
@@ -196,21 +270,13 @@ class CharacterManagerFrame(DrivenFrame):
         self.list_cats.set_items(category_items)
         self.app.log(f"Loaded {len(category_items)} categories")
 
-        self.list_cats.listbox.selection_set(0)
+        self.list_cats.set_selection_indices((0,))
 
         self.combo_cats.configure(values=[c.label for c in category_items])
 
         self.open_selected_category()
 
     # Widget management
-
-    def widget_buttons_middle(self) -> tk.Frame:
-        frame = tk.Frame(self)
-        y = Counter()
-
-        # TODO move
-
-        return frame
 
     def widget_buttons_cats(self) -> tk.Frame:
         frame = tk.Frame(self)
@@ -270,6 +336,11 @@ class CharacterManagerFrame(DrivenFrame):
             command=self.open_info
         )
         btn_char_info.grid(row=y.inc(), sticky=tk.EW)
+        btn_char_folder = ttk.Button(
+            frame, text="Open folder",
+            command=self.open_folder
+        )
+        btn_char_folder.grid(row=y.inc(), sticky=tk.EW)
 
         # btn_char_movecat = ttk.Button(
         #     frame, text="TODO Move to...",
@@ -299,14 +370,14 @@ class CharacterManagerFrame(DrivenFrame):
         frame_buttons_cats: tk.Frame = self.widget_buttons_cats()
         frame_buttons_cats.grid(row=2, column=0)
 
-        self.list_cats.listbox.bind('<<ListboxSelect>>', self.open_selected_category)
+        self.list_cats.bind_select(self.open_selected_category)
 
         # frame_buttons_mid: tk.Frame = self.widget_buttons_middle()
         # frame_buttons_mid.grid(row=0, column=1)
 
         lab_cats = ttk.Label(self, text="Characters")
         lab_cats.grid(row=0, column=2)
-        self.list_chars: ItemListFrame = ItemListFrame(self, selectmode=tk.MULTIPLE)
+        self.list_chars: ItemListFrame = ItemListFrame(self, multiple=True, rowheight=32)
         self.list_chars.grid(row=1, column=2, sticky=tk.NSEW)
         frame_buttons_chars: tk.Frame = self.widget_buttons_chars()
         frame_buttons_chars.grid(row=2, column=2)
@@ -314,7 +385,7 @@ class CharacterManagerFrame(DrivenFrame):
     # GUI manipulation
 
     def get_selected_category(self) -> str:
-        sel_index = self.list_cats.listbox.curselection()
+        sel_index = self.list_cats.selected_indexes()
         if len(sel_index) != 1:
             raise AssertionError("No category selected?")
         selected_cat: ListboxItem = self.list_cats.items[sel_index[0]]
@@ -335,9 +406,8 @@ class CharacterManagerFrame(DrivenFrame):
         self.app.log(f"Loaded {len(group_items)} chars from group {category!r}")
 
         # Update UI in case category was opened programatically
-        self.list_cats.listbox.select_clear(0, tk.END)
         cat_index = [i.value for i in self.list_cats.items].index(category)
-        self.list_cats.listbox.selection_set(cat_index)
+        self.list_cats.set_selection_indices((cat_index,))
 
     def fac_sort_chars_by(self, key_fn) -> Callable[..., None]:
         def do_sort(event=None):
@@ -355,7 +425,7 @@ class CharacterManagerFrame(DrivenFrame):
     def fac_move_selected_chars(self, direction: Direction) -> Callable[..., None]:
         def do_move(event=None):  # noqa: ARG001
             category = self.get_selected_category()
-            sel_indexes = self.list_chars.listbox.curselection()
+            sel_indexes = self.list_chars.selected_indexes()
             reordered_items: list[ListboxItem] = self.list_chars.move_selected_items(sel_indexes, direction)
             self.app.nested_state[category] = [i.value for i in reordered_items]
             assert self.list_chars.items == self.gen_listboxitems_chars(category)
@@ -363,7 +433,7 @@ class CharacterManagerFrame(DrivenFrame):
 
     def fac_move_selected_cat(self, d: Direction) -> Callable[..., None]:
         def do_move(event=None):  # noqa: ARG001
-            (si,) = self.list_cats.listbox.curselection()
+            (si,) = self.list_cats.selected_indexes()
             if (si + d) < 0 or (si + d) >= len(self.app.category_order):
                 return
             reordered_items: list[ListboxItem] = self.list_cats.move_selected_items([si], d)
@@ -375,10 +445,16 @@ class CharacterManagerFrame(DrivenFrame):
         return do_move
 
     def open_info(self, event=None):  # noqa: ARG002
-        si, *_ = self.list_chars.listbox.curselection()
+        si, *_ = self.list_chars.selected_indexes()
         char: RoaEntry = self.list_chars.items[si].value
         url = f"steam://openurl/https://steamcommunity.com/sharedfiles/filedetails/?id={char.id}"
         webbrowser.open(url, autoraise=True)
+
+    def open_folder(self, event=None):  # noqa: ARG002
+        si, *_ = self.list_chars.selected_indexes()
+        char: RoaEntry = self.list_chars.items[si].value
+        path = char.value.decode('utf-8')
+        os.startfile(path)
 
     def move_char_to_category(self, src_cat: str, dest_cat: str, char: RoaEntry):
         self.app.log(f"Moving {char} from {src_cat} to {dest_cat}")
@@ -426,7 +502,7 @@ class CharacterManagerFrame(DrivenFrame):
         src_cat = self.get_selected_category()
         dest_cat_label = self.combo_cats.get()
         dest_cat = {c.label: c.value for c in self.gen_listitems_categories()}[dest_cat_label]
-        for si in self.list_chars.listbox.curselection():
+        for si in self.list_chars.selected_indexes():
             char = self.list_chars.items[si].value
             self.move_char_to_category(src_cat, dest_cat, char)
 

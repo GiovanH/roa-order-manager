@@ -12,8 +12,9 @@ from bin import BinReader, BinWriter
 
 
 class RoaEntry():
-    def __init__(self, value: bytes) -> None:
+    def __init__(self, type: str, value: bytes) -> None:
         self.value: bytes = value
+        self.type: str = type
 
     @property
     def id(self) -> str:
@@ -28,6 +29,17 @@ class RoaEntry():
     @property
     def ini_path(self) -> Path:
         return Path(self.value.decode()) / 'config.ini'
+
+    def image_path(self) -> Path:
+        if self.type == 'characters':
+            return Path(self.value.decode()) / 'hud.png'
+        if self.type == 'buddies':
+            return Path(self.value.decode()) / 'icon.png'
+        if self.type == 'skins':
+            return Path(self.value.decode()) / 'icon.png'
+        if self.type == 'stages':
+            return Path(self.value.decode()) / 'thumb.png'
+        raise NotImplementedError(f"RoaEntry.image for type {self.type!r}")
 
     @functools.cached_property
     def ini(self) -> Mapping[str, Mapping[str, str]]:
@@ -102,6 +114,7 @@ class RoaOrderFile:
         view: bytes = data
         groups = []
         curr_group = []
+        group_type = self.group_labels[len(curr_group)]
         expected_count = 0
 
         reader = BinReader(data)
@@ -118,11 +131,13 @@ class RoaOrderFile:
                 # Begin next list
                 curr_group = []
 
+
                 assert reader.read_raw(2) == b'\x00\x01'
                 expected_count = reader.read_int()
                 reader.read_null(2)
             else:
-                curr_group.append(RoaEntry(string))
+                group_type = self.group_labels[len(groups)-1]
+                curr_group.append(RoaEntry(type=group_type, value=string))
                 reader.read_null()
 
         if len(curr_group) != expected_count:
