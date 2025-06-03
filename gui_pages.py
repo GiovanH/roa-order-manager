@@ -1,0 +1,381 @@
+import abc
+import os
+import tkinter as tk
+import webbrowser
+from abc import abstractmethod
+from collections import OrderedDict
+from tkinter import ttk
+from tkinter.simpledialog import askstring
+from typing import Callable
+# from gui import MainApp
+
+from gui_itemlists import CatInfo, Direction, ItemListFrameCats, ItemListFrameRoa
+from roa import RoaEntry
+
+
+def sort_name(entry: RoaEntry) -> str:
+    try:
+        return entry.name.upper()
+    except:
+        return 'ERROR'
+
+
+class Counter():
+    def __init__(self, value: int = 0) -> None:
+        self.value: int = value
+
+    def inc(self) -> int:
+        last_val = self.value
+        self.value += 1
+        return last_val
+
+
+class DrivenFrame(tk.Frame, abc.ABC):
+    def __init__(self, master, *args, **kwargs) -> None:
+        super().__init__(master, *args, **kwargs)
+
+        self.app = master
+        self.initwindow()
+        self.load_gui_from_state()
+
+    @abstractmethod
+    def initwindow(self): pass
+
+    @abstractmethod
+    def load_gui_from_state(self): pass
+
+
+class ListManagerFrame(DrivenFrame):
+    def __init__(self, master, list_name: str, *args, **kwargs) -> None:
+        self.list_name = list_name
+        super().__init__(master, *args, **kwargs)
+
+    def initwindow(self):
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        icons: dict[str, tuple[int, int]] = {
+            'stages': (56, 40),
+            'buddies': (42, 32),
+            'skins': (20, 20),
+        }
+
+        self.itemlist: ItemListFrameRoa = ItemListFrameRoa(
+            self,
+            multiple=True,
+            icon_size=icons.get(self.list_name, (0, 20))
+        )
+        self.itemlist.grid(row=0, column=0, sticky=tk.NSEW)
+
+        frame_buttons_chars = tk.Frame(self)
+        y = Counter()
+
+        frame_updown = tk.Frame(frame_buttons_chars)
+
+        btn_move_up = ttk.Button(frame_updown, text="^", command=self.fac_move_selected(-1))
+        btn_move_up.grid(row=0, column=0)
+
+        btn_move_down = ttk.Button(frame_updown, text="v", command=self.fac_move_selected(1))
+        btn_move_down.grid(row=0, column=1)
+
+        frame_updown.grid(row=y.inc(), sticky=tk.EW)
+
+        btn_sort_alpha = ttk.Button(
+            master=frame_buttons_chars, text="Sort: A-Z",
+            command=self.fac_sort_by(sort_name)
+        )
+        btn_sort_alpha.grid(row=y.inc(), sticky=tk.EW)
+
+        btn_char_info = ttk.Button(
+            frame_buttons_chars, text="Open in Steam",
+            command=self.open_info
+        )
+        btn_char_info.grid(row=y.inc(), sticky=tk.EW)
+        btn_char_info = ttk.Button(
+            frame_buttons_chars, text="Open folder",
+            command=self.open_folder
+        )
+        btn_char_info.grid(row=y.inc(), sticky=tk.EW)
+        frame_buttons_chars.grid(row=0, column=1)
+
+    def load_gui_from_state(self):
+        self.itemlist.set_items(self.app.order_roa.groups[self.list_name])
+
+    def fac_move_selected(self, d: Direction):
+        def do_move(event=None):  # noqa: ARG001
+            reordered_items: list[RoaEntry] = self.itemlist.move_selected_items(d)
+            self.app.order_roa.groups[self.list_name] = reordered_items
+
+        return do_move
+
+    def fac_sort_by(self, key_fn):
+        def do_move(event=None):  # noqa: ARG001
+            group = self.app.order_roa.groups[self.list_name]
+            sorted_group = sorted(group, key=key_fn)
+            self.app.order_roa.groups[self.list_name] = sorted_group
+
+            self.load_gui_from_state()
+        return do_move
+
+    def open_info(self, event=None):  # noqa: ARG002
+        for char in self.itemlist.selected_items():
+            url = f"steam://openurl/https://steamcommunity.com/sharedfiles/filedetails/?id={char.id}"
+            webbrowser.open(url, autoraise=True)
+
+    def open_folder(self, event=None):  # noqa: ARG002
+        for char in self.itemlist.selected_items():
+            path = char.value.decode('utf-8')
+            os.startfile(path)  # noqa: S606
+
+
+class CharacterManagerFrame(DrivenFrame):
+    # State management
+    def gen_listitems_categories(self) -> list[CatInfo]:
+        return [
+            CatInfo(category, len(chars))
+            for category, chars in self.app._inorder_items()
+        ]
+
+    def load_gui_from_state(self):
+        category_items: list[CatInfo] = self.gen_listitems_categories()
+        self.list_cats.set_items(category_items)
+        self.app.log(f"Loaded {len(category_items)} categories")
+
+        self.list_cats.select_items((category_items[0],))
+
+        self.combo_cats.configure(values=[c.label for c in category_items])
+
+        self.open_selected_category()
+
+    # Widget management
+
+    def widget_buttons_cats(self) -> tk.Frame:
+        frame = tk.Frame(self)
+        y = Counter()
+
+        frame_updown = tk.Frame(frame)
+
+        btn_move_up = ttk.Button(frame_updown, text="^", command=self.fac_move_selected_cat(-1))
+        btn_move_up.grid(row=0, column=0)
+
+        btn_move_down = ttk.Button(frame_updown, text="v", command=self.fac_move_selected_cat(1))
+        btn_move_down.grid(row=0, column=1)
+
+        frame_updown.grid(row=y.inc(), sticky=tk.EW)
+
+        btn_add = ttk.Button(frame, text="Add", command=self.add_category)
+        btn_add.grid(row=y.inc(), sticky=tk.EW)
+
+        btn_del = ttk.Button(frame, text="Delete", command=self.delete_category)
+        btn_del.grid(row=y.inc(), sticky=tk.EW)
+
+        btn_rename = ttk.Button(
+            frame, text="Rename",
+            command=self.interactive_rename_category
+        )
+        btn_rename.grid(row=y.inc(), sticky=tk.EW)
+
+        return frame
+
+    def widget_buttons_chars(self) -> tk.Frame:
+        frame = tk.Frame(self)
+        y = Counter()
+
+        frame_updown = tk.Frame(frame)
+        btn_move_up = ttk.Button(
+            frame_updown, text="^",
+            command=self.fac_move_selected_chars(-1)
+        )
+        btn_move_up.grid(row=0, column=0)
+
+        btn_move_down = ttk.Button(
+            frame_updown, text="v",
+            command=self.fac_move_selected_chars(1)
+        )
+        btn_move_down.grid(row=0, column=1)
+
+        frame_updown.grid(row=y.inc(), sticky=tk.EW)
+
+        btn_sort_alpha = ttk.Button(
+            frame, text="Sort: A-Z",
+            command=self.fac_sort_chars_by(sort_name)
+        )
+        btn_sort_alpha.grid(row=y.inc(), sticky=tk.EW)
+
+        btn_char_info = ttk.Button(
+            frame, text="Open in Steam",
+            command=self.open_info
+        )
+        btn_char_info.grid(row=y.inc(), sticky=tk.EW)
+        btn_char_folder = ttk.Button(
+            frame, text="Open folder",
+            command=self.open_folder
+        )
+        btn_char_folder.grid(row=y.inc(), sticky=tk.EW)
+
+        # btn_char_movecat = ttk.Button(
+        #     frame, text="TODO Move to...",
+        #     # command=
+        # )
+        # btn_char_movecat.grid(row=y.inc(), sticky=tk.EW)
+
+        self.combo_cats = ttk.Combobox(frame)
+        self.combo_cats.bind("<<ComboboxSelected>>", self.move_chars_to_combobox_cat)
+        self.combo_cats.set("Move to category...")
+        self.combo_cats.grid(row=y.inc(), sticky=tk.EW)
+
+        return frame
+
+    def initwindow(self) -> None:
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=0)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=0)
+        self.grid_columnconfigure(2, weight=1)
+
+        lab_cats = ttk.Label(self, text="Categories")
+        lab_cats.grid(row=0, column=0)
+        self.list_cats: ItemListFrameCats = ItemListFrameCats(self)
+        self.list_cats.grid(row=1, column=0, sticky=tk.NSEW)
+        frame_buttons_cats: tk.Frame = self.widget_buttons_cats()
+        frame_buttons_cats.grid(row=2, column=0)
+
+        self.list_cats.bind_select(self.open_selected_category)
+
+        # frame_buttons_mid: tk.Frame = self.widget_buttons_middle()
+        # frame_buttons_mid.grid(row=0, column=1)
+
+        lab_cats = ttk.Label(self, text="Characters")
+        lab_cats.grid(row=0, column=2)
+        self.list_chars: ItemListFrameRoa = ItemListFrameRoa(self, multiple=True, icon_size=(48, 32))
+        self.list_chars.grid(row=1, column=2, sticky=tk.NSEW)
+        frame_buttons_chars: tk.Frame = self.widget_buttons_chars()
+        frame_buttons_chars.grid(row=2, column=2)
+
+    # GUI manipulation
+
+    def get_selected_category(self) -> CatInfo:
+        selected_cats = self.list_cats.selected_items()
+        if len(selected_cats) != 1:
+            raise AssertionError("No category selected?")
+        selected_cat: CatInfo = selected_cats[0]
+        return selected_cat
+
+    def open_selected_category(self, event=None) -> None:  # noqa: ARG002
+        self.open_category(self.get_selected_category().name)
+
+    def open_category(self, cat_name: str) -> None:
+        if cat_name == self.get_selected_category().name:
+            group_items: list[RoaEntry] = self.app.nested_state[cat_name]
+            self.list_chars.set_items(group_items)
+            self.app.log(f"Loaded {len(group_items)} chars from group {cat_name!r}")
+        else:
+            # Update UI in case category was opened programatically
+            self.list_cats.select_items(tuple(
+                c for c in self.list_cats.items
+                if c.name == cat_name
+            ))
+
+    def fac_sort_chars_by(self, key_fn) -> Callable[..., None]:
+        def do_sort(event=None):
+            category: CatInfo = self.get_selected_category()
+            characters = self.app.nested_state[category.name]
+
+            sorted_group = sorted(characters, key=key_fn)
+            self.app.nested_state[category.name] = sorted_group
+            self.open_category(category.name)
+
+            assert self.list_chars.items == self.app.nested_state[category.name]
+
+        return do_sort
+
+    def fac_move_selected_chars(self, direction: Direction) -> Callable[..., None]:
+        def do_move(event=None):  # noqa: ARG001
+            category = self.get_selected_category()
+            reordered_items: list[RoaEntry] = self.list_chars.move_selected_items(direction)
+            self.app.nested_state[category.name] = reordered_items
+            assert self.list_chars.items == reordered_items
+        return do_move
+
+    def fac_move_selected_cat(self, d: Direction) -> Callable[..., None]:
+        def do_move(event=None):  # noqa: ARG001
+            selected_cat = self.get_selected_category()
+            si: int = self.list_cats.items.index(selected_cat)
+            if (si + d) < 0 or (si + d) >= len(self.app.category_order):
+                return
+
+            reordered_items: list[CatInfo] = self.list_cats.move_selected_items(d)
+
+            self.app.category_order[si], self.app.category_order[si + d] = self.app.category_order[si + d], self.app.category_order[si]
+
+            self.app.log(f"New key order: {self.app.category_order}")
+            assert reordered_items == self.app.category_order
+        return do_move
+
+    def open_info(self, event=None):  # noqa: ARG002
+        for char in self.list_chars.selected_items():
+            url = f"steam://openurl/https://steamcommunity.com/sharedfiles/filedetails/?id={char.id}"
+            webbrowser.open(url, autoraise=True)
+
+    def open_folder(self, event=None):  # noqa: ARG002
+        for char in self.list_chars.selected_items():
+            path = char.value.decode('utf-8')
+            os.startfile(path)  # noqa: S606
+
+    def move_char_to_category(self, src_cat: str, dest_cat: str, char: RoaEntry):
+        self.app.log(f"Moving {char} from {src_cat} to {dest_cat}")
+        self.app.nested_state[src_cat].remove(char)
+        self.app.nested_state[dest_cat].append(char)
+
+        self.load_gui_from_state()
+
+    def interactive_rename_category(self):
+        cur_cat_name = self.get_selected_category().name
+        new_name = askstring(title=None, prompt=f"New name for {cur_cat_name!r}")
+        if new_name:
+            self.rename_category(cur_cat_name, new_name)
+            self.open_category(new_name)
+
+    def rename_category(self, cat: str, new_name: str):
+        tups = list(self.app.nested_state.items())
+        for i, t in enumerate(tups):
+            label, charlist = t
+            if label == cat:
+                tups[i] = (new_name, charlist)
+                break
+            self.app.log(f"Couldn't find {cat} in {tups}")
+        self.app.nested_state = OrderedDict(tups)
+        self.app.category_order[self.app.category_order.index(cat)] = new_name
+
+        self.load_gui_from_state()
+
+    def delete_category(self):
+        cat_name = self.get_selected_category().name
+        if cat_name and len(self.app.nested_state[cat_name]) == 0:
+            self.app.nested_state.pop(cat_name)
+            self.app.category_order.remove(cat_name)
+            self.load_gui_from_state()
+        else:
+            self.app.log("Can only remove empty categories")
+
+    def add_category(self):
+        new_name = askstring(title=None, prompt="Name for new category")
+        if new_name and new_name not in self.app.nested_state.keys():
+            self.app.nested_state[new_name] = []
+            self.app.category_order.append(new_name)
+
+            self.load_gui_from_state()
+            self.open_category(new_name)
+
+    def move_chars_to_combobox_cat(self, event=None):
+        self.app.log(event)
+        src_cat: str = self.get_selected_category().name
+        dest_cat_label: str = self.combo_cats.get()
+        dest_cat: str = {c.label: c.name for c in self.gen_listitems_categories()}[dest_cat_label]
+
+        for char in self.list_chars.selected_items():
+            self.move_char_to_category(src_cat, dest_cat, char)
+
+        self.open_category(src_cat)
+        self.combo_cats.set("Move to category...")
