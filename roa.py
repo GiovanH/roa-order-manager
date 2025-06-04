@@ -8,6 +8,8 @@ import os
 import traceback
 import configparser
 
+from frozendict import frozendict
+
 from bin import BinReader, BinWriter
 
 
@@ -95,8 +97,10 @@ class RoaOrderFile:
         return len(self.group_labels)
 
     def __init__(self, roa_path: Path) -> None:
-        self.groups: dict[str, list[RoaEntry]] = OrderedDict()
         self.roa_path: Path = roa_path
+
+        self.groups: dict[str, list[RoaEntry]] = OrderedDict()
+        self.state_on_disk: frozendict[str, list[RoaEntry]] = frozendict()
 
         with open(roa_path, 'rb') as fp:
             data: bytes = fp.read()
@@ -106,6 +110,10 @@ class RoaOrderFile:
 
         self.load_bytes(data)
         assert data == self.encode_bytes()
+        assert not self.is_dirty()
+
+    def is_dirty(self) -> bool:
+        return self.groups != self.state_on_disk
 
     def check_file_header(self, file: bytes) -> bool:
         return file[:9] == self.header
@@ -153,6 +161,9 @@ class RoaOrderFile:
         for i, group in enumerate(groups):
             self.groups[self.group_labels[i]] = group
 
+        self.state_on_disk = frozendict(self.groups)
+        assert not self.is_dirty()
+
     def encode_bytes(self) -> bytes:
         writer = BinWriter()
 
@@ -173,6 +184,9 @@ class RoaOrderFile:
         with open(self.roa_path, 'wb') as fp:
             fp.write(encoded)
 
+        self.state_on_disk = frozendict(self.groups)
+        assert not self.is_dirty()
+
 
 @dataclass
 class RoaCategory():
@@ -182,9 +196,10 @@ class RoaCategory():
 
 class RoaCategoriesFile:
     def __init__(self, roa_path: Path) -> None:
-        self.categories: list[RoaCategory] = []
-
         self.roa_path: Path = roa_path
+
+        self.categories: list[RoaCategory] = []
+        self.state_on_disk: tuple[RoaCategory, ...] = tuple()
 
         with open(roa_path, 'rb') as fp:
             data: bytes = fp.read()
@@ -192,6 +207,9 @@ class RoaCategoriesFile:
         self.load_bytes(data)
 
         assert data == self.encode_bytes()
+
+    def is_dirty(self) -> bool:
+        return tuple(self.categories) != self.state_on_disk
 
     def load_bytes(self, data: bytes):
         self.categories.clear()
@@ -204,6 +222,9 @@ class RoaCategoriesFile:
 
             self.categories.append(RoaCategory(index=c_index, label=c_label))
             reader.read_null()
+
+        self.state_on_disk = tuple(self.categories)
+        assert not self.is_dirty()
 
     def encode_bytes(self) -> bytes:
         writer = BinWriter()
@@ -221,3 +242,6 @@ class RoaCategoriesFile:
         print("Writing", self.roa_path)
         with open(self.roa_path, 'wb') as fp:
             fp.write(encoded)
+
+        self.state_on_disk = tuple(self.categories)
+        assert not self.is_dirty()

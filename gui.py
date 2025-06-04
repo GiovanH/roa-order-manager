@@ -9,7 +9,6 @@ from gui_pages import CharacterManagerFrame, DrivenFrame, ListManagerFrame
 from roa import RoaCategoriesFile, RoaCategory, RoaEntry, RoaOrderFile
 from yaml_sync import roa_zip_chars
 
-ROA_DIR = Path(f"{os.environ['LOCALAPPDATA']}/RivalsofAether/workshop")
 
 class MainApp(tk.Tk):
     def __init__(
@@ -26,71 +25,86 @@ class MainApp(tk.Tk):
         self.categories_roa: RoaCategoriesFile = categories_roa
 
         self.childframes: list[DrivenFrame] = []
+        self.is_dirty: bool = False
 
         self.load_state_from_roa()
 
         self.initwindow()
 
-        self.protocol("WM_DELETE_WINDOW", lambda: None)
+        self.protocol("WM_DELETE_WINDOW", self.delete_window)
         self.mainloop()
 
     def initwindow(self):
         self.geometry("800x600+40+40")
 
-        self.notebook = ttk.Notebook(self)
+        def frame_btns():
+            frame_btns = tk.Frame(self)
 
-        frame_chars = CharacterManagerFrame(self)
-        self.notebook.add(frame_chars, text="Characters")
-        self.childframes.append(frame_chars)
+            btn_reload = ttk.Button(
+                frame_btns, text="🔄 Reload discarding changes",
+                command=self.load_state_from_roa)
+            btn_export = ttk.Button(
+                frame_btns, text="💾 Export to ROA",
+                command=self.save_state_to_roas)
+            # btn_exit = ttk.Button(
+            #     frame_btns, text="❌ Cancel discarding changes",
+            #     command=self.destroy)
 
-        for simple_list in ['buddies', 'stages', 'skins']:
-            frame = ListManagerFrame(self, simple_list)
-            self.notebook.add(frame, text=simple_list.capitalize())
-            self.childframes.append(frame)
+            btn_reload.grid(row=0, column=1, sticky=tk.E)
+            # btn_exit.grid(row=0, column=0, sticky=tk.E)
+            btn_export.grid(row=0, column=3, sticky=tk.E)
+            return frame_btns
 
-        # self.grid_columnconfigure(0, weight=1)
-        # self.grid_rowconfigure(2, weight=1)
+        def notebook():
+            notebook = ttk.Notebook(self)
 
-        frame_btns = self.frame_btns()
+            frame_chars = CharacterManagerFrame(self)
+            notebook.add(frame_chars, text="Characters")
+            self.childframes.append(frame_chars)
 
-        lab_context_label = ttk.Label(self, textvariable=self.text_status, relief=tk.GROOVE)
+            for simple_list in ['buddies', 'stages', 'skins']:
+                frame = ListManagerFrame(self, simple_list)
+                notebook.add(frame, text=simple_list.capitalize())
+                self.childframes.append(frame)
+            return notebook
 
-        frame_btns.pack(fill='x', side=tk.TOP)
-        self.notebook.pack(fill='both', expand=1)
-        lab_context_label.pack(fill='x', side=tk.BOTTOM)
+        def frame_info():
+            frame_info = tk.Frame(self)
+            lab_context_label = ttk.Label(frame_info, textvariable=self.text_status, relief=tk.GROOVE)
+            check_db = tk.Checkbutton(
+                frame_info,
+                text='Dark blockchain',
+                variable=tk.BooleanVar()
+            )
 
-    def frame_btns(self) -> tk.Frame:
-        frame_btns = tk.Frame(background='yellow')
+            lab_context_label.pack(fill='x', expand=1, side=tk.LEFT)
+            check_db.pack(side=tk.RIGHT)
+            return frame_info
 
-        btn_export = ttk.Button(
-            frame_btns, text="🔄 Reload discarding changes",
-            command=self.load_state_from_roa)
-        btn_export.grid(row=0, column=0, sticky=tk.E)
+        frame_btns().pack(fill='x', side=tk.TOP)
+        notebook().pack(fill='both', expand=1)
+        frame_info().pack(fill='x', side=tk.BOTTOM)
 
         self.bind_all("<Control-S>", self.save_state_to_roas)
-        btn_export = ttk.Button(
-            frame_btns, text="💾 Export to ROA",
-            command=self.save_state_to_roas)
-        btn_export.grid(row=0, column=1, sticky=tk.E)
 
-        db = tk.BooleanVar()
-        tk.Checkbutton(
-            frame_btns,
-            text='Dark blockchain',
-            variable=db
-        ).grid(row=0, column=2, sticky=tk.EW)
-        self.grid_columnconfigure(2, weight=1)
-
-        btn_export = ttk.Button(
-            frame_btns, text="❌ Cancel discarding changes",
-            command=self.destroy)
-        btn_export.grid(row=0, column=3, sticky=tk.E)
-        return frame_btns
+    def delete_window(self) -> None:
+        if self.is_dirty or self.order_roa.is_dirty() or self.categories_roa.is_dirty():
+            resp = messagebox.askyesnocancel("Unsaved changes!", "You have not exported your changes back to Rivals of Aether yet. Save before quitting?")
+            if resp is None:
+                return
+            elif resp is False:
+                self.destroy()
+            elif resp is True:
+                self.save_state_to_roas()
+                self.destroy()
+        else:
+            self.destroy()
 
     def log(self, line) -> None:
+        max_old_lines = 2
         line = str(line)
-        print(line)
-        self.text_status.set(line)
+        lines = self.text_status.get().split('\n')
+        self.text_status.set('\n'.join([*lines[-max_old_lines:], line]))
 
     def _inorder_items(self) -> Generator[tuple[str, list[RoaEntry]], Any, None]:
         assert set(self.category_order) == set(self.nested_state.keys())
@@ -130,10 +144,13 @@ class MainApp(tk.Tk):
 
         order_roa.save_file()
         categories_roa.save_file()
+        self.is_dirty = False
         self.log("Saved groups and order to ROA")
 
 
 if __name__ == '__main__':
+    ROA_DIR = Path(f"{os.environ['LOCALAPPDATA']}/RivalsofAether/workshop")
+
     order_roa = RoaOrderFile(ROA_DIR / 'order.roa')
     categories_roa = RoaCategoriesFile(ROA_DIR / 'categories.roa')
     MainApp(order_roa, categories_roa)

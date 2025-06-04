@@ -1,3 +1,4 @@
 pyinstaller
 prompt_toolkit
 typeguard
+frozendict
