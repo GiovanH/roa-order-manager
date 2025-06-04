@@ -9,6 +9,7 @@ from gui_pages import CharacterManagerFrame, DrivenFrame, ListManagerFrame
 from roa import RoaCategoriesFile, RoaCategory, RoaEntry, RoaOrderFile
 from yaml_sync import roa_zip_chars
 
+_nogc = []
 
 class MainApp(tk.Tk):
     def __init__(
@@ -44,15 +45,16 @@ class MainApp(tk.Tk):
                 frame_btns, text="🔄 Reload discarding changes",
                 command=self.load_state_from_roa)
             btn_export = ttk.Button(
-                frame_btns, text="💾 Export to ROA",
-                command=self.save_state_to_roas)
+                frame_btns, text="💾 Save and export to ROA",
+                command=self.save_state_to_roas,
+                underline=3
+            )
             # btn_exit = ttk.Button(
             #     frame_btns, text="❌ Cancel discarding changes",
             #     command=self.destroy)
 
-            btn_reload.grid(row=0, column=1, sticky=tk.E)
-            # btn_exit.grid(row=0, column=0, sticky=tk.E)
-            btn_export.grid(row=0, column=3, sticky=tk.E)
+            btn_reload.pack(side=tk.RIGHT)
+            btn_export.pack(side=tk.RIGHT)
             return frame_btns
 
         def notebook():
@@ -71,11 +73,18 @@ class MainApp(tk.Tk):
         def frame_info():
             frame_info = tk.Frame(self)
             lab_context_label = ttk.Label(frame_info, textvariable=self.text_status, relief=tk.GROOVE)
-            check_db = tk.Checkbutton(
+
+            var_db = tk.IntVar(value=0)
+            check_db = ttk.Checkbutton(
                 frame_info,
                 text='Dark blockchain',
-                variable=tk.BooleanVar()
+                variable=var_db
             )
+            _nogc.append(var_db)
+
+            def trace(a, b, c):
+                self.log("woah!")
+            var_db.trace_add('write', trace)
 
             lab_context_label.pack(fill='x', expand=1, side=tk.LEFT)
             check_db.pack(side=tk.RIGHT)
@@ -85,7 +94,7 @@ class MainApp(tk.Tk):
         notebook().pack(fill='both', expand=1)
         frame_info().pack(fill='x', side=tk.BOTTOM)
 
-        self.bind_all("<Control-S>", self.save_state_to_roas)
+        self.bind_all("<Control-s>", self.save_state_to_roas)
 
     def delete_window(self) -> None:
         if self.is_dirty or self.order_roa.is_dirty() or self.categories_roa.is_dirty():

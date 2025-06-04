@@ -53,16 +53,10 @@ class ListManagerFrame(DrivenFrame):
     # Window management
 
     def initwindow(self):
-        icons: dict[str, tuple[int, int]] = {
-            'stages': (56, 40),
-            'buddies': (42, 32),
-            'skins': (20, 20),
-        }
-
         self.list_items: ItemListFrameRoa = ItemListFrameRoa(
             self,
             multiple=True,
-            icon_size=icons.get(self.list_name, (0, 20))
+            icon_size=RoaEntry.image_sizes.get(self.list_name, (0, 20))
         )
 
         # for col in self.list_items.columns:
@@ -110,7 +104,7 @@ class ListManagerFrame(DrivenFrame):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
         self.list_items.grid(row=0, column=0, sticky=tk.NSEW)
-        frame_buttons_chars().grid(row=0, column=1)
+        frame_buttons_chars().grid(row=0, column=1, sticky=tk.N)
 
     def load_gui_from_state(self):
         self.list_items.set_items(self.app.order_roa.groups[self.list_name])
@@ -229,12 +223,16 @@ class CharacterManagerFrame(DrivenFrame):
             self.combo_cats.bind("<<ComboboxSelected>>", self.move_chars_to_combobox_cat)
             self.combo_cats.set("Move to category...")
 
-            frame_updown().grid(row=y.inc(), sticky=tk.EW)
-            btn_sort_alpha.grid(row=y.inc(), sticky=tk.EW)
-            btn_char_info.grid(row=y.inc(), sticky=tk.EW)
-            btn_char_folder.grid(row=y.inc(), sticky=tk.EW)
-            btn_moveto.grid(row=y.inc(), sticky=tk.EW)
-            self.combo_cats.grid(row=y.inc(), sticky=tk.EW)
+            c = 0
+            frame_updown().grid(row=y.inc(), column=c, sticky=tk.EW)
+            btn_sort_alpha.grid(row=y.inc(), column=c, sticky=tk.EW)
+            btn_moveto.grid(row=y.inc(), column=c, sticky=tk.EW)
+
+            y.value = 0
+            c = 1
+            btn_char_info.grid(row=y.inc(), column=c, sticky=tk.EW)
+            btn_char_folder.grid(row=y.inc(), column=c, sticky=tk.EW)
+            self.combo_cats.grid(row=y.inc(), column=c, sticky=tk.EW)
             # btn_char_movecat.grid(row=y.inc(), sticky=tk.EW)
 
             return frame
@@ -248,7 +246,7 @@ class CharacterManagerFrame(DrivenFrame):
         lab_chars = ttk.Label(self, text="Characters")
         self.list_chars: ItemListFrameRoa = ItemListFrameRoa(
             self, multiple=True,
-            icon_size=(79, 31)
+            icon_size=RoaEntry.image_sizes['characters']
             # icon_size=(48, 32)
         )
 
@@ -436,7 +434,6 @@ class CharacterManagerFrame(DrivenFrame):
         self.load_gui_from_state()
 
     def move_chars_to_combobox_cat(self, event=None):
-        self.app.log(event)
         src_cat: str = self.get_selected_category().name
         dest_cat_label: str = self.combo_cats.get()
 

@@ -4,8 +4,12 @@ from abc import abstractmethod
 from functools import lru_cache
 from tkinter import ttk
 from typing import ClassVar, Generic, Literal, Sequence, TypeAlias, TypeVar, Union
+from PIL import ImageTk
+from PIL import Image, ImageFile
 
 from roa import RoaEntry
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 Direction: TypeAlias = Union[Literal[1], Literal[-1]]
 
@@ -26,7 +30,14 @@ class CatInfo():
 
 @lru_cache(maxsize=None)
 def photoimage(path: str) -> tk.PhotoImage:
-    return tk.PhotoImage(file=path)
+    try:
+        return tk.PhotoImage(file=path)
+    except tk.TclError as e:
+        if e.args[0] == 'CRC check failed':
+            pilimg = Image.open(path, formats=('png',))
+            return ImageTk.PhotoImage(pilimg)
+        else:
+            raise e
 
 
 class ItemListFrame(tk.Frame, Generic[T]):

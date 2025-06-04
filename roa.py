@@ -19,8 +19,12 @@ class RoaEntry():
         self.type: str = type
 
     @property
+    def directory(self) -> Path:
+        return Path(self.value.decode())
+
+    @property
     def id(self) -> str:
-        return Path(self.value.decode()).name
+        return self.directory.name
 
     def __repr__(self):
         return f"<{self.name!r} {self.id} by {self.author!r}>"
@@ -30,25 +34,32 @@ class RoaEntry():
 
     @property
     def ini_path(self) -> Path:
-        return Path(self.value.decode()) / 'config.ini'
+        return self.directory / 'config.ini'
+
+    image_sizes: ClassVar[frozendict[str, tuple[int, int]]] = frozendict({
+        'characters': (79, 31),
+        'stages': (56, 40),
+        'buddies': (42, 32),
+        'skins': (79, 31),
+    })
 
     def image_path(self) -> Path:
         if self.type == 'characters':
-            return Path(self.value.decode()) / 'result_small.png'
+            return self.directory / 'result_small.png'
         if self.type == 'buddies':
-            return Path(self.value.decode()) / 'icon.png'
+            return self.directory / 'icon.png'
         if self.type == 'skins':
-            return Path(self.value.decode()) / 'icon.png'
+            return self.directory / 'result_small.png'
         if self.type == 'stages':
-            return Path(self.value.decode()) / 'thumb.png'
+            return self.directory / 'thumb.png'
         raise NotImplementedError(f"RoaEntry.image for type {self.type!r}")
 
     @functools.cached_property
-    def ini(self) -> Mapping[str, Mapping[str, str]]:
+    def ini(self) -> configparser.ConfigParser:
         filename = self.ini_path
         if not os.path.isfile(filename):
             print(FileNotFoundError(filename))
-            return {}
+            return {}  # type: ignore
         parser = configparser.ConfigParser(strict=False, interpolation=None)
         try:
             with open(filename, 'r', encoding='utf-8') as fp:
@@ -58,32 +69,28 @@ class RoaEntry():
             traceback.print_exc()
             return parser
 
-    @functools.cached_property
-    def name(self):
+    def get_property(self, key):
         try:
-            return self.ini['general'].get('name')[1:-1]  # type: ignore
+            return self.ini['general'].get(key)[1:-1]  # type: ignore
         except configparser.Error:
             print(self.ini_path)
             traceback.print_exc()
-            return 'ERROR'
-        except KeyError:
-            return 'ERROR'
+            return '<INI ERROR>'
+        except (KeyError, TypeError):
+            return '<UNDEFINED>'
+
+    @functools.cached_property
+    def name(self):
+        return self.get_property('name')
 
     @functools.cached_property
     def author(self):
-        try:
-            return self.ini['general'].get('author')[1:-1]  # type: ignore
-        except configparser.Error:
-            print(self.ini_path)
-            traceback.print_exc()
-            return 'ERROR'
-        except (KeyError, TypeError):
-            return 'ERROR'
+        return self.get_property('author')
 
     @functools.cached_property
     def version(self) -> float:
         try:
-            return float(ast.literal_eval(self.ini['general']['version']))
+            return self.ini['general'].getfloat('version')  # type: ignore
         except (KeyError, ValueError):
             return -1
 
