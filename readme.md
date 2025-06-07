@@ -4,30 +4,15 @@ Rivals of Aether includes built-in tools to re-order your character list and add
 
 ## GUI Usage
 
-`gui.py`/`reroader.exe` are a graphical interface for character organization.
+`reroader.exe` is a graphical interface for character/stage/buddy/skin organization.
 
-### Complete
+![Character view](./doc/characters.png)
 
-- Reordering categories
-- Renaming categories
-- Adding and deleting categories
-- Reordering characters
-- Moving characters between categories
-- GUI Stage list organization
-- GUI Buddy organization
-- GUI Skin organization
-- Dark blockchain
-
-### TODO
-
-- Better handling of window close action
-- Some very fancy tracking of whether you need to save or not
-- Better window layout
-- More sort options
+![stage view](./doc/stages.png)
 
 ## CLI Usage
 
-This tool synchronizes a local yaml file with the current Rivals of Aether installation.
+The `main.py` tool synchronizes a local yaml file with the current Rivals of Aether installation.
 
 The YAML file represents a mapping between character category names and the characters included in them. Running the tool synchronizes the YAML file to your local binary files.
 
