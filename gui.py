@@ -121,6 +121,8 @@ class MainApp(tk.Tk):
             yield (k, self.nested_state[k])
 
     def load_state_from_roa(self):
+        order_roa.load_from_disk()
+
         self.nested_state: dict[str, list[RoaEntry]] = roa_zip_chars(order_roa, categories_roa)
         self.category_order = list(self.nested_state.keys())
         self.load_gui_from_state()

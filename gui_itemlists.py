@@ -27,6 +27,10 @@ class CatInfo():
     def label(self):
         return f"{self.name} ({self.length})"
 
+    @property
+    def slot_waste(self) -> int:
+        return (4-self.length) % 4
+
 
 @lru_cache(maxsize=None)
 def photoimage(path: str) -> tk.PhotoImage:
@@ -100,6 +104,8 @@ class ItemListFrame(tk.Frame, Generic[T]):
                     )
 
                     continue
+                except NotImplementedError:
+                    continue
                 except tk.TclError as e:
                     print(item, item.image_path(), e)
 
@@ -152,8 +158,8 @@ class ItemListFrameRoa(ItemListFrame[RoaEntry]):
 
 
 class ItemListFrameCats(ItemListFrame[CatInfo]):
-    columns: ClassVar[tuple[str, ...]] = ('Name', 'Length')
+    columns: ClassVar[tuple[str, ...]] = ('Name', 'Length', 'Waste')
 
     @staticmethod
     def item_to_values(item: CatInfo) -> tuple[str, ...]:
-        return (item.name, str(item.length))
+        return (item.name, str(item.length), str(item.slot_waste))

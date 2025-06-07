@@ -5,7 +5,7 @@ import webbrowser
 from abc import abstractmethod
 from collections import OrderedDict
 from tkinter import ttk
-from tkinter.simpledialog import askstring
+from tkinter.simpledialog import Dialog, askstring
 from typing import Callable, Optional
 # from gui import MainApp
 
@@ -28,6 +28,51 @@ class Counter():
         last_val = self.value
         self.value += 1
         return last_val
+
+
+class MultiSelectDialog(Dialog):
+
+    def __init__(self, parent, labels, option_lists, stagger_lists=False):
+        self.labels = labels
+        self.option_lists = option_lists
+        self.pickers = []
+        self.stagger_lists = stagger_lists
+        self.results = None
+
+        self.range = range(len(self.labels))
+        super().__init__(parent=parent)
+
+    def body(self, master):
+
+        is_first = True
+        first_picker = None
+        for i in self.range:
+            labeltext = self.labels[i]
+            options = self.option_lists[i]
+            ttk.Label(master, text=labeltext).grid(column=0, row=i)
+            picker = ttk.Combobox(master, values=options)
+            picker.grid(column=1, row=i, sticky="ew")
+            if self.stagger_lists:
+                picker.current(i)
+            else:
+                picker.current(0)
+            if is_first:
+                first_picker = picker
+                is_first = False
+            self.pickers.append(picker)
+
+        text_width = max(len(str(text)) for list_ in self.option_lists for text in list_)
+        for picker in self.pickers:
+            picker.config(width=text_width)
+
+        assert isinstance(first_picker, ttk.Combobox)
+        first_picker.focus()
+
+        master.columnconfigure(1, weight=1)
+        master.pack(padx=5, pady=5, fill="x")
+
+    def apply(self):
+        self.results = [self.pickers[i].get() for i in self.range]
 
 
 class DrivenFrame(tk.Frame, abc.ABC):
@@ -266,6 +311,7 @@ class CharacterManagerFrame(DrivenFrame):
         widget_buttons_chars().grid(row=2, column=2)
 
         self.list_cats.bind_select(self.open_selected_category)
+        self.list_chars.tree.bind('m', self.interactive_move_sel_to_cat)
 
     def load_gui_from_state(self):
         category_items: list[CatInfo] = self.gen_listitems_categories()
@@ -312,7 +358,7 @@ class CharacterManagerFrame(DrivenFrame):
             self.app.category_order[si], self.app.category_order[si + d] = self.app.category_order[si + d], self.app.category_order[si]
 
             self.app.log(f"New key order: {self.app.category_order}")
-            assert reordered_items == self.app.category_order
+            assert [v.name for v in reordered_items] == self.app.category_order
         return do_move
 
     # Character ordering
@@ -384,8 +430,8 @@ class CharacterManagerFrame(DrivenFrame):
         self.load_gui_from_state()
 
     def delete_category(self):
-        cat_name = self.get_selected_category().name
-        if cat_name and len(self.app.nested_state[cat_name]) == 0:
+        cat_name: str = self.get_selected_category().name
+        if cat_name is not None and len(self.app.nested_state[cat_name]) == 0:
             self.app.nested_state.pop(cat_name)
             self.app.category_order.remove(cat_name)
             self.app.is_dirty = True
@@ -421,7 +467,35 @@ class CharacterManagerFrame(DrivenFrame):
     def interactive_move_sel_to_cat(self, event=None):
         # TODO mirror move char to category via message prommpt
         # ALSO bind this to the listbox as a key
-        raise NotImplementedError()
+
+        src_cat: str = self.get_selected_category().name
+        chars_to_move = self.list_chars.selected_items()
+
+        results: Optional[list[str]] = MultiSelectDialog(
+            self,
+            ["New category: "],
+            [
+                [
+                    *[c.label for c in self.gen_listitems_categories()],
+                    "<NEW>"
+                ]
+            ]
+        ).results
+
+        if results:
+            dest_cat_label = results[0]
+            if dest_cat_label == "<NEW>":
+                dest_cat: Optional[str] = self.add_category()
+                if dest_cat is None:
+                    return
+            else:
+                dest_cat = {
+                    c.label: c.name for c in
+                    self.gen_listitems_categories()
+                }[dest_cat_label]
+
+            for char in chars_to_move:
+                self.move_char_to_category(src_cat, dest_cat, char)
 
         self.load_gui_from_state()
 

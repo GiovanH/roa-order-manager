@@ -1,12 +1,13 @@
-import ast
-from collections import OrderedDict
-from dataclasses import dataclass
+import configparser
 import functools
-from typing import ClassVar, Mapping
-from pathlib import Path
+import glob
+import itertools
 import os
 import traceback
-import configparser
+from collections import OrderedDict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import ClassVar, Mapping
 
 from frozendict import frozendict
 
@@ -14,9 +15,8 @@ from bin import BinReader, BinWriter
 
 
 class RoaEntry():
-    def __init__(self, type: str, value: bytes) -> None:
+    def __init__(self, value: bytes) -> None:
         self.value: bytes = value
-        self.type: str = type
 
     @property
     def directory(self) -> Path:
@@ -35,6 +35,19 @@ class RoaEntry():
     @property
     def ini_path(self) -> Path:
         return self.directory / 'config.ini'
+
+    @property
+    def type(self) -> str:
+        type_val = self.get_property('type')
+        if type_val == '0':
+            return 'characters'
+        if type_val == '1':
+            return 'buddies'
+        if type_val == '2':
+            return 'stages'
+        if type_val == '3':
+            return 'skins'
+        raise NotImplementedError(type_val)
 
     image_sizes: ClassVar[frozendict[str, tuple[int, int]]] = frozendict({
         'characters': (79, 31),
@@ -58,7 +71,7 @@ class RoaEntry():
     def ini(self) -> configparser.ConfigParser:
         filename = self.ini_path
         if not os.path.isfile(filename):
-            print(FileNotFoundError(filename))
+            print("File not found:", filename)
             return {}  # type: ignore
         parser = configparser.ConfigParser(strict=False, interpolation=None)
         try:
@@ -72,8 +85,8 @@ class RoaEntry():
     def get_property(self, key):
         try:
             return self.ini['general'].get(key)[1:-1]  # type: ignore
-        except configparser.Error:
-            print(self.ini_path)
+        except configparser.Error as e:
+            print("Parser error reading", self.ini_path)
             traceback.print_exc()
             return '<INI ERROR>'
         except (KeyError, TypeError):
@@ -109,7 +122,18 @@ class RoaOrderFile:
         self.groups: dict[str, list[RoaEntry]] = OrderedDict()
         self.state_on_disk: frozendict[str, list[RoaEntry]] = frozendict()
 
-        with open(roa_path, 'rb') as fp:
+        self.load_from_disk()
+
+        self.scan_for_new_chars()
+
+    def is_dirty(self) -> bool:
+        return self.groups != self.state_on_disk
+
+    def check_file_header(self, file: bytes) -> bool:
+        return file[:9] == self.header
+
+    def load_from_disk(self):
+        with open(self.roa_path, 'rb') as fp:
             data: bytes = fp.read()
 
         if not self.check_file_header(data):
@@ -118,12 +142,6 @@ class RoaOrderFile:
         self.load_bytes(data)
         assert data == self.encode_bytes()
         assert not self.is_dirty()
-
-    def is_dirty(self) -> bool:
-        return self.groups != self.state_on_disk
-
-    def check_file_header(self, file: bytes) -> bool:
-        return file[:9] == self.header
 
     def load_bytes(self, data: bytes):
         view: bytes = data
@@ -146,13 +164,12 @@ class RoaOrderFile:
                 # Begin next list
                 curr_group = []
 
-
                 assert reader.read_raw(2) == b'\x00\x01'
                 expected_count = reader.read_int()
                 reader.read_null(2)
             else:
                 group_type = self.group_labels[len(groups)-1]
-                curr_group.append(RoaEntry(type=group_type, value=string))
+                curr_group.append(RoaEntry(value=string))
                 reader.read_null()
 
         if len(curr_group) != expected_count:
@@ -194,6 +211,41 @@ class RoaOrderFile:
         self.state_on_disk = frozendict(self.groups)
         assert not self.is_dirty()
 
+    def scan_for_new_chars(self):
+        # 1. Find paths for all known entries
+        all_entries = {*itertools.chain(*self.groups.values())}
+        known_entry_dirs = {e.directory for e in all_entries}
+
+        # 2. Find set of root directories
+        root_dirs = {e.directory.parent for e in all_entries}
+
+        # 3. Find paths on disk not in order list
+        all_entry_dirs = {
+            *(
+                Path(s) for s in
+                itertools.chain(
+                    *(
+                        glob.glob(str(parent) + '/*/')
+                        for parent in root_dirs
+                    )
+                )
+            )
+        }
+
+        # # 4. Add new order items to list state
+        new_dirs = all_entry_dirs - known_entry_dirs
+        for n in new_dirs:
+            try:
+                dir_bytes = str(n).encode('utf-8')
+                new_entry = RoaEntry(dir_bytes)
+
+                print("Adding new entry", new_entry, "to", new_entry.type)
+                self.groups[new_entry.type].append(new_entry)
+            except:
+                traceback.print_exc()
+                continue
+
+        # raise NotImplementedError()
 
 @dataclass
 class RoaCategory():
