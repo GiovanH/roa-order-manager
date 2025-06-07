@@ -7,11 +7,11 @@ import traceback
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Mapping
+from typing import ClassVar
 
 from frozendict import frozendict
 
-from bin import BinReader, BinWriter
+from binutil import BinReader, BinWriter
 
 
 class RoaEntry():

@@ -11,8 +11,8 @@ test:
 
 .PHONY: lint
 lint: requirements
-	-python3 -m mypy *.py
-	-vulture  *.py
+	-python3 -m mypy src/*.py
+	-vulture src/*.py
 
 requirements: requirements.txt
 	${PYTHON} -m pip install -r requirements.txt
@@ -26,10 +26,10 @@ clean:
 
 exe: requirements $(addprefix bin/,${exec_targets})
 
-bin/reroader.exe: gui.py
+bin/reroader.exe: src/gui.py
 	mkdir -p bin
-	${PYTHON} -m pip install PyInstaller
 	${PYTHON} -m PyInstaller \
+		--paths src \
 		--onefile \
 		--console \
 		--distpath bin \

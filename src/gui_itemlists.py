@@ -39,7 +39,7 @@ def photoimage(path: str) -> tk.PhotoImage:
     except tk.TclError as e:
         if e.args[0] == 'CRC check failed':
             pilimg = Image.open(path, formats=('png',))
-            return ImageTk.PhotoImage(pilimg)
+            return ImageTk.PhotoImage(pilimg) # type: ignore
         else:
             raise e
 

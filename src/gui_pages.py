@@ -7,7 +7,6 @@ from collections import OrderedDict
 from tkinter import ttk
 from tkinter.simpledialog import Dialog, askstring
 from typing import Callable, Optional
-# from gui import MainApp
 
 from gui_itemlists import CatInfo, Direction, ItemListFrameCats, ItemListFrameRoa
 from roa import RoaEntry
@@ -356,6 +355,7 @@ class CharacterManagerFrame(DrivenFrame):
             reordered_items: list[CatInfo] = self.list_cats.move_selected_items(d)
 
             self.app.category_order[si], self.app.category_order[si + d] = self.app.category_order[si + d], self.app.category_order[si]
+            self.app.dirty = True
 
             self.app.log(f"New key order: {self.app.category_order}")
             assert [v.name for v in reordered_items] == self.app.category_order
@@ -364,7 +364,7 @@ class CharacterManagerFrame(DrivenFrame):
     # Character ordering
 
     def fac_sort_chars_by(self, key_fn) -> Callable[..., None]:
-        def do_sort(event=None):
+        def do_sort(event=None):  # noqa: ARG001
             category: CatInfo = self.get_selected_category()
             characters = self.app.nested_state[category.name]
 
@@ -464,7 +464,7 @@ class CharacterManagerFrame(DrivenFrame):
             path = char.value.decode('utf-8')
             os.startfile(path)  # noqa: S606
 
-    def interactive_move_sel_to_cat(self, event=None):
+    def interactive_move_sel_to_cat(self, event=None):  # noqa: ARG002
         # TODO mirror move char to category via message prommpt
         # ALSO bind this to the listbox as a key
 
@@ -507,7 +507,7 @@ class CharacterManagerFrame(DrivenFrame):
 
         self.load_gui_from_state()
 
-    def move_chars_to_combobox_cat(self, event=None):
+    def move_chars_to_combobox_cat(self, event=None):  # noqa: ARG002
         src_cat: str = self.get_selected_category().name
         dest_cat_label: str = self.combo_cats.get()
 

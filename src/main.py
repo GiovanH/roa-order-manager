@@ -5,7 +5,6 @@ import pprint
 
 from roa import RoaCategoriesFile, RoaOrderFile
 from yaml_sync import yaml, load_yaml_state, sync_characters_to_yaml, sync_yaml_to_roa, roa_zip_chars
-
 from interactive import edit_interactive
 
 ROA_DIR = Path(f"{os.environ['LOCALAPPDATA']}/RivalsofAether/workshop")

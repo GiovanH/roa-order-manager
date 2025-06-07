@@ -83,7 +83,7 @@ def sync_characters_to_yaml(order_roa: RoaOrderFile, categories_roa: RoaCategori
     }
     # Remove unsubscribed or duplicate characters
     yaml_seen_reprs = set()
-    for label, group in yaml_state.items():
+    for label, group in [*yaml_state.items()]:
         if label == '_removed': continue
         for repr_ in [*group]:
             if repr_ in yaml_seen_reprs:

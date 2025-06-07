@@ -1,6 +1,3 @@
-
-import os
-from pathlib import Path
 import prompt_toolkit as ptk
 from prompt_toolkit import completion
 

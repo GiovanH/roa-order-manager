@@ -82,7 +82,7 @@ class MainApp(tk.Tk):
             )
             _nogc.append(var_db)
 
-            def trace(a, b, c):
+            def trace(a, b, c):  # noqa: ARG001
                 self.log("woah!")
             var_db.trace_add('write', trace)
 
