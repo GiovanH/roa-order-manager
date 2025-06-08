@@ -17,17 +17,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get git tag
+        id: git_tag
+        shell: bash
+        run: |
+          # Get the current tag if on a tag, otherwise get latest tag
+          if git describe --exact-match --tags HEAD 2>/dev/null; then
+            TAG=$(git describe --exact-match --tags HEAD)
+          else
+            TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0-dev")
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Current tag: $TAG"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Run make
-        run: make
+        env:
+          GIT_TAG: ${{ steps.git_tag.outputs.tag }}
+        run: make release
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         with:
-          files: bin/reroader.exe
+          files: dist/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
