@@ -31,8 +31,9 @@ venv: requirements.txt
 .PHONY: exe
 exe: venv $(addprefix dist/,${exec_targets})
 
-dist/reroader.exe: src/gui.py
-	mkdir -p dist
+dist/reroader.exe: src/*.py src/reroader/*.py
+	mkdir -p dist build
+	cp icon.png build/
 	${PYTHON} -m PyInstaller \
 		--paths src \
 		--onefile \
@@ -40,6 +41,8 @@ dist/reroader.exe: src/gui.py
 		--distpath dist \
 		--workpath build \
 		--specpath build \
+		--icon "icon.png" \
+		--add-data="icon.png:." \
 		--name $(notdir $@) \
 		$<
 

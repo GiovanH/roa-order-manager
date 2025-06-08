@@ -1,14 +1,24 @@
 import os
+import sys
 import tkinter as tk
 from tkinter import ttk
 from typing import Any, Generator
 from tkinter import messagebox
+from PIL import ImageTk
+from PIL import Image
 
 from .gui_pages import CharacterManagerFrame, DrivenFrame, ListManagerFrame
 from .roa import ROA_DIR, RoaCategoriesFile, RoaCategory, RoaEntry, RoaOrderFile
 from .yaml_sync import roa_zip_chars
 
 _nogc = []
+
+# Resolve bundled pyinstaller assets
+if getattr(sys, 'frozen', False):
+    bundle_root: str = sys._MEIPASS  # type: ignore
+elif __file__:
+    bundle_root = os.path.dirname(__file__)
+
 
 class MainApp(tk.Tk):
     def __init__(
@@ -18,6 +28,10 @@ class MainApp(tk.Tk):
     ) -> None:
         super().__init__()
         self.title("Re-ROAder")
+
+        ico = Image.open(os.path.join(bundle_root, 'icon.png'))
+        photo = ImageTk.PhotoImage(ico)
+        self.wm_iconphoto(False, photo)
 
         self.text_status: tk.StringVar = tk.StringVar(value="Status")
 
