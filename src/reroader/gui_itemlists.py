@@ -27,9 +27,17 @@ class CatInfo():
     def label(self) -> str:
         return f"{self.name} ({self.length})"
 
-    @property
-    def slot_waste(self) -> int:
-        return (4 - self.length) % 4
+    def slot_waste_4(self, index: int) -> int:
+        cat_length = self.length
+        if index == 0:
+            cat_length += 1
+        return (4 - cat_length) % 4
+
+    def slot_waste_16(self, index: int) -> int:
+        cat_length = self.length
+        if index == 0:
+            cat_length += 1
+        return (16 - cat_length) % 16
 
 
 @lru_cache(maxsize=None)
@@ -49,7 +57,7 @@ class ItemListFrame(tk.Frame, Generic[T]):
 
     @staticmethod
     @abstractmethod
-    def item_to_values(item: T) -> tuple[str, ...]: pass
+    def item_to_values(item: T, item_index: int) -> tuple[str, ...]: pass
 
     def __init__(
         self,
@@ -83,7 +91,9 @@ class ItemListFrame(tk.Frame, Generic[T]):
         self.tree.column('#0', width=0, minwidth=icon_size[0] + (20 if icon_size[0] > 0 else 0))
         for i, header in enumerate(self.columns):
             widths = {
-                'Length': 30
+                'Length': 50,
+                'Waste4': 36,
+                'Waste16': 40,
             }
             self.tree.column(i, width=widths.get(header, 120), minwidth=40)
             self.tree.heading(column=i, text=header)
@@ -93,8 +103,8 @@ class ItemListFrame(tk.Frame, Generic[T]):
     def set_items(self, items: Sequence[T]) -> None:
         self.items = list(items)
         self.tree.delete(*self.tree.get_children(''))
-        for item in items:
-            values: tuple[str, ...] = self.item_to_values(item)
+        for item_index, item in enumerate(items):
+            values: tuple[str, ...] = self.item_to_values(item, item_index=item_index)
             if isinstance(item, RoaEntry):
                 try:
                     self.map_ids[item] = self.tree.insert(
@@ -153,13 +163,13 @@ class ItemListFrameRoa(ItemListFrame[RoaEntry]):
     columns: ClassVar[tuple[str, ...]] = ('Name', 'Author')
 
     @staticmethod
-    def item_to_values(item: RoaEntry) -> tuple[str, ...]:
+    def item_to_values(item: RoaEntry, item_index: int) -> tuple[str, ...]:
         return (item.name, item.author)
 
 
 class ItemListFrameCats(ItemListFrame[CatInfo]):
-    columns: ClassVar[tuple[str, ...]] = ('Name', 'Length', 'Waste')
+    columns: ClassVar[tuple[str, ...]] = ('Name', 'Length', 'Waste4', 'Waste16')
 
     @staticmethod
-    def item_to_values(item: CatInfo) -> tuple[str, ...]:
-        return (item.name, str(item.length), str(item.slot_waste))
+    def item_to_values(item: CatInfo, item_index: int) -> tuple[str, ...]:
+        return (item.name, str(item.length), str(item.slot_waste_4(item_index)), str(item.slot_waste_16(item_index)))

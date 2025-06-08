@@ -7,7 +7,7 @@ class BinReader():
         self.data = data
         self.p = 0
 
-    def read_null(self, count=1):
+    def read_null(self, count=1) -> None:
         assert isinstance(self.data, bytes)
         for _ in range(count):
             assert self.data[self.p:self.p + 1] == b'\x00'
@@ -48,16 +48,16 @@ class BinWriter():
     def blob(self) -> bytes:
         return b''.join(self.parts)
 
-    def write_null(self):
+    def write_null(self) -> None:
         self.parts.append(b'\x00')
 
-    def write_int(self, val: int):
+    def write_int(self, val: int) -> None:
         self.parts.append(struct.pack('<H', val))
 
-    def write_str(self, val: bytes):
+    def write_str(self, val: bytes) -> None:
         self.parts.append(val + b'\x00')
 
-    def write_strlist(self, strings: list[bytes]):
+    def write_strlist(self, strings: list[bytes]) -> None:
         self.write_int(len(strings))
         self.parts.append(b'\x00\x00')
         part = b''.join(s + b'\x00' for s in strings)
