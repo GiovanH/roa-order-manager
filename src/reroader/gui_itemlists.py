@@ -156,7 +156,16 @@ class ItemListFrame(tk.Frame, Generic[T]):
         return self.move_items(self.selected_items(), direction)
 
     def selected_items(self) -> list[T]:
-        return [self.map_items[v] for v in self.tree.selection()]
+        selection = self.tree.selection()
+        try:
+            return [self.map_items[v] for v in selection]
+        except KeyError:
+            registered_items = {k: self.tree.item(k) for k in self.tree.get_children()}
+            print("Couldn't map selected tree items!")
+            print(f"{selection=}")
+            print(f"{self.map_items=}")
+            print(f"{registered_items=}")
+            raise
 
 
 class ItemListFrameRoa(ItemListFrame[RoaEntry]):

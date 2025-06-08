@@ -7,7 +7,7 @@ import traceback
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Optional
 
 from frozendict import frozendict
 
@@ -19,6 +19,7 @@ ROA_DIR = Path(f"{os.environ['LOCALAPPDATA']}/RivalsofAether/workshop")
 class RoaEntry():
     def __init__(self, value: bytes) -> None:
         self.value: bytes = value
+        self.parser_error: Optional[Exception] = None
 
     @property
     def directory(self) -> Path:
@@ -80,8 +81,9 @@ class RoaEntry():
             with open(filename, 'r', encoding='utf-8') as fp:
                 parser.read_file(fp)
             return parser
-        except configparser.Error:
+        except configparser.Error as e:
             traceback.print_exc()
+            self.parser_error = e
             return parser
 
     def get_property(self, key) -> str:
@@ -93,8 +95,10 @@ class RoaEntry():
             return '<INI ERROR>'
         except (KeyError, TypeError):
             print("Key error reading", self.ini_path)
-            traceback.print_exc()
-            return '<UNDEFINED>'
+            if self.parser_error:
+                return '<INI ERROR>'
+            else:
+                return '<UNDEFINED>'
 
     @functools.cached_property
     def name(self) -> str:

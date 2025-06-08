@@ -43,12 +43,12 @@ dist/reroader.exe: src/*.py src/reroader/*.py
 		--specpath build \
 		--icon "icon.png" \
 		--add-data="icon.png:." \
-		--name $(notdir $@) \
-		$<
+		--name reroader-gui \
+		src/gui.py
 
 # Get GIT_TAG from environment variable, fallback to git command if not set
 GIT_TAG ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0-dev")
 
 .PHONY: release
 release: exe
-	mv -v "dist/reroader.exe" "dist/reroader-$(GIT_TAG).exe"
+	mv -v "dist/reroader-gui.exe" "dist/reroader-gui-$(GIT_TAG).exe"
