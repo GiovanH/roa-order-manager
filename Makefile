@@ -15,6 +15,14 @@ lint: venv
 test: venv
 	${PYTHON} -m doctest src/*.py
 
+.PHONY: clean
+clean:
+	$(RM) -r venv/
+	$(RM) -r build/
+	$(RM) -r dist/
+	$(RM) -r .mypy_cache/
+	$(RM) -r src/__pycache__ src/*/__pycache__
+
 venv: requirements.txt
 	python3 -m venv ./venv
 	${PYTHON} -m pip install -r requirements.txt

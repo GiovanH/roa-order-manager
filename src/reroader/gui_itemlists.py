@@ -7,7 +7,7 @@ from typing import ClassVar, Generic, Literal, Sequence, TypeAlias, TypeVar, Uni
 from PIL import ImageTk
 from PIL import Image, ImageFile
 
-from roa import RoaEntry
+from .roa import RoaEntry
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -24,12 +24,12 @@ class CatInfo():
     length: int
 
     @property
-    def label(self):
+    def label(self) -> str:
         return f"{self.name} ({self.length})"
 
     @property
     def slot_waste(self) -> int:
-        return (4-self.length) % 4
+        return (4 - self.length) % 4
 
 
 @lru_cache(maxsize=None)
@@ -39,7 +39,7 @@ def photoimage(path: str) -> tk.PhotoImage:
     except tk.TclError as e:
         if e.args[0] == 'CRC check failed':
             pilimg = Image.open(path, formats=('png',))
-            return ImageTk.PhotoImage(pilimg) # type: ignore
+            return ImageTk.PhotoImage(pilimg)  # type: ignore
         else:
             raise e
 
@@ -54,7 +54,7 @@ class ItemListFrame(tk.Frame, Generic[T]):
     def __init__(
         self,
         parent,
-        multiple=False,
+        multiple: bool = False,
         icon_size: tuple[int, int] = (0, 20)
     ) -> None:
         super().__init__(parent)
@@ -65,8 +65,8 @@ class ItemListFrame(tk.Frame, Generic[T]):
         style_id = f"height{icon_size[1]}.Treeview"
         s = ttk.Style()
         s.configure(style_id, rowheight=icon_size[1])
-        s.configure(style_id+".padding", border=0)
-        s.configure(style_id+".treearea", border=0)
+        s.configure(style_id + ".padding", border=0)
+        s.configure(style_id + ".treearea", border=0)
 
         myscroll = tk.Scrollbar(self)
         myscroll.pack(side=tk.RIGHT, fill=tk.Y)
@@ -90,7 +90,7 @@ class ItemListFrame(tk.Frame, Generic[T]):
 
         self.tree.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-    def set_items(self, items: Sequence[T]):
+    def set_items(self, items: Sequence[T]) -> None:
         self.items = list(items)
         self.tree.delete(*self.tree.get_children(''))
         for item in items:
@@ -116,7 +116,7 @@ class ItemListFrame(tk.Frame, Generic[T]):
             continue
         self.map_items = {v: k for k, v in self.map_ids.items()}
 
-    def bind_select(self, callback):
+    def bind_select(self, callback) -> None:
         self.tree.bind('<<TreeviewSelect>>', callback)
 
     def select_items(self, items: Union[T, tuple[T, ...]]) -> None:

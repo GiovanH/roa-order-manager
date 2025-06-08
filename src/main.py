@@ -1,13 +1,10 @@
-import os
 import argparse
-from pathlib import Path
 import pprint
 
-from roa import RoaCategoriesFile, RoaOrderFile
-from yaml_sync import yaml, load_yaml_state, sync_characters_to_yaml, sync_yaml_to_roa, roa_zip_chars
-from interactive import edit_interactive
+from reroader.roa import ROA_DIR, RoaCategoriesFile, RoaOrderFile
+from reroader.yaml_sync import yaml, load_yaml_state, sync_characters_to_yaml, sync_yaml_to_roa, roa_zip_chars
+from reroader.interactive import edit_interactive
 
-ROA_DIR = Path(f"{os.environ['LOCALAPPDATA']}/RivalsofAether/workshop")
 
 if __name__ == '__main__':
     order_roa = RoaOrderFile(ROA_DIR / 'order.roa')

@@ -1,7 +1,4 @@
-pyinstaller
 prompt_toolkit
-typeguard
 frozendict
-vulture
 pillow
 ruamel.yaml

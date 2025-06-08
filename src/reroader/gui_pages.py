@@ -8,8 +8,8 @@ from tkinter import ttk
 from tkinter.simpledialog import Dialog, askstring
 from typing import Callable, Optional
 
-from gui_itemlists import CatInfo, Direction, ItemListFrameCats, ItemListFrameRoa
-from roa import RoaEntry
+from .gui_itemlists import CatInfo, Direction, ItemListFrameCats, ItemListFrameRoa
+from .roa import RoaEntry
 
 
 def sort_name(entry: RoaEntry) -> str:
@@ -41,7 +41,7 @@ class MultiSelectDialog(Dialog):
         self.range = range(len(self.labels))
         super().__init__(parent=parent)
 
-    def body(self, master):
+    def body(self, master) -> None:
 
         is_first = True
         first_picker = None
@@ -70,7 +70,7 @@ class MultiSelectDialog(Dialog):
         master.columnconfigure(1, weight=1)
         master.pack(padx=5, pady=5, fill="x")
 
-    def apply(self):
+    def apply(self) -> None:
         self.results = [self.pickers[i].get() for i in self.range]
 
 
@@ -83,10 +83,10 @@ class DrivenFrame(tk.Frame, abc.ABC):
         self.load_gui_from_state()
 
     @abstractmethod
-    def initwindow(self): pass
+    def initwindow(self) -> None: pass
 
     @abstractmethod
-    def load_gui_from_state(self): pass
+    def load_gui_from_state(self) -> None: pass
 
 
 class ListManagerFrame(DrivenFrame):
@@ -96,7 +96,7 @@ class ListManagerFrame(DrivenFrame):
 
     # Window management
 
-    def initwindow(self):
+    def initwindow(self) -> None:
         self.list_items: ItemListFrameRoa = ItemListFrameRoa(
             self,
             multiple=True,
@@ -150,12 +150,12 @@ class ListManagerFrame(DrivenFrame):
         self.list_items.grid(row=0, column=0, sticky=tk.NSEW)
         frame_buttons_chars().grid(row=0, column=1, sticky=tk.N)
 
-    def load_gui_from_state(self):
+    def load_gui_from_state(self) -> None:
         self.list_items.set_items(self.app.order_roa.groups[self.list_name])
 
     # Data ordering
 
-    def fac_move_selected(self, d: Direction):
+    def fac_move_selected(self, d: Direction) -> Callable[..., None]:
         def do_move(event=None):  # noqa: ARG001
             prev_order = tuple(self.app.order_roa.groups[self.list_name])
             reordered_items: list[RoaEntry] = self.list_items.move_selected_items(d)
@@ -164,7 +164,7 @@ class ListManagerFrame(DrivenFrame):
 
         return do_move
 
-    def fac_sort_by(self, key_fn):
+    def fac_sort_by(self, key_fn) -> Callable[..., None]:
         def do_move(event=None):  # noqa: ARG001
             group = self.app.order_roa.groups[self.list_name]
             sorted_group = sorted(group, key=key_fn)
@@ -175,12 +175,12 @@ class ListManagerFrame(DrivenFrame):
 
     # Selection actions
 
-    def open_info(self, event=None):  # noqa: ARG002
+    def open_info(self, event=None) -> None:  # noqa: ARG002
         for char in self.list_items.selected_items():
             url = f"steam://openurl/https://steamcommunity.com/sharedfiles/filedetails/?id={char.id}"
             webbrowser.open(url, autoraise=True)
 
-    def open_folder(self, event=None):  # noqa: ARG002
+    def open_folder(self, event=None) -> None:  # noqa: ARG002
         for char in self.list_items.selected_items():
             path = char.value.decode('utf-8')
             os.startfile(path)  # noqa: S606
@@ -407,14 +407,14 @@ class CharacterManagerFrame(DrivenFrame):
                 if c.name == cat_name
             ))
 
-    def interactive_rename_category(self):
+    def interactive_rename_category(self) -> None:
         cur_cat_name = self.get_selected_category().name
         new_name = askstring(title=None, prompt=f"New name for {cur_cat_name!r}")
         if new_name:
             self.rename_category(cur_cat_name, new_name)
             self.open_category(new_name)
 
-    def rename_category(self, cat: str, new_name: str):
+    def rename_category(self, cat: str, new_name: str) -> None:
         tups = list(self.app.nested_state.items())
         for i, t in enumerate(tups):
             label, charlist = t
@@ -429,7 +429,7 @@ class CharacterManagerFrame(DrivenFrame):
 
         self.load_gui_from_state()
 
-    def delete_category(self):
+    def delete_category(self) -> None:
         cat_name: str = self.get_selected_category().name
         if cat_name is not None and len(self.app.nested_state[cat_name]) == 0:
             self.app.nested_state.pop(cat_name)
@@ -439,7 +439,7 @@ class CharacterManagerFrame(DrivenFrame):
         else:
             self.app.log("Can only remove empty categories")
 
-    def add_category(self):
+    def add_category(self) -> Optional[str]:
         new_name = askstring(title=None, prompt="Name for new category")
         if new_name and new_name not in self.app.nested_state.keys():
             self.app.nested_state[new_name] = []
@@ -454,17 +454,17 @@ class CharacterManagerFrame(DrivenFrame):
 
     # Character actions
 
-    def open_info(self, event=None):  # noqa: ARG002
+    def open_info(self, event=None) -> None:  # noqa: ARG002
         for char in self.list_chars.selected_items():
             url = f"steam://openurl/https://steamcommunity.com/sharedfiles/filedetails/?id={char.id}"
             webbrowser.open(url, autoraise=True)
 
-    def open_folder(self, event=None):  # noqa: ARG002
+    def open_folder(self, event=None) -> None:  # noqa: ARG002
         for char in self.list_chars.selected_items():
             path = char.value.decode('utf-8')
             os.startfile(path)  # noqa: S606
 
-    def interactive_move_sel_to_cat(self, event=None):  # noqa: ARG002
+    def interactive_move_sel_to_cat(self, event=None) -> None:  # noqa: ARG002
         # TODO mirror move char to category via message prommpt
         # ALSO bind this to the listbox as a key
 
@@ -499,7 +499,7 @@ class CharacterManagerFrame(DrivenFrame):
 
         self.load_gui_from_state()
 
-    def move_char_to_category(self, src_cat: str, dest_cat: str, char: RoaEntry):
+    def move_char_to_category(self, src_cat: str, dest_cat: str, char: RoaEntry) -> None:
         self.app.log(f"Moving {char} from {src_cat} to {dest_cat}")
         self.app.nested_state[src_cat].remove(char)
         self.app.nested_state[dest_cat].append(char)
@@ -507,7 +507,7 @@ class CharacterManagerFrame(DrivenFrame):
 
         self.load_gui_from_state()
 
-    def move_chars_to_combobox_cat(self, event=None):  # noqa: ARG002
+    def move_chars_to_combobox_cat(self, event=None) -> None:  # noqa: ARG002
         src_cat: str = self.get_selected_category().name
         dest_cat_label: str = self.combo_cats.get()
 

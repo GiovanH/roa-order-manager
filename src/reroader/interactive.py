@@ -3,8 +3,8 @@ from prompt_toolkit import completion
 
 import pprint
 
-from roa import RoaCategoriesFile, RoaOrderFile
-from yaml_sync import load_yaml_state
+from .roa import RoaCategoriesFile, RoaOrderFile
+from .yaml_sync import load_yaml_state
 
 
 def GroupCompleter(yaml_state: dict[str, list[str]]) -> completion.WordCompleter:
@@ -63,7 +63,7 @@ def edit_interactive(yaml_state: dict[str, list[str]]):
 
 
 if __name__ == '__main__':
-    from main import ROA_DIR
+    from src.main import ROA_DIR
     order_roa = RoaOrderFile(ROA_DIR / 'order.roa')
     categories_roa = RoaCategoriesFile(ROA_DIR / 'categories.roa')
     yaml_state = load_yaml_state(order_roa, categories_roa)

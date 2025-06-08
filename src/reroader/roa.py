@@ -11,7 +11,9 @@ from typing import ClassVar
 
 from frozendict import frozendict
 
-from binutil import BinReader, BinWriter
+from .binutil import BinReader, BinWriter
+
+ROA_DIR = Path(f"{os.environ['LOCALAPPDATA']}/RivalsofAether/workshop")
 
 
 class RoaEntry():
@@ -82,22 +84,24 @@ class RoaEntry():
             traceback.print_exc()
             return parser
 
-    def get_property(self, key):
+    def get_property(self, key) -> str:
         try:
             return self.ini['general'].get(key)[1:-1]  # type: ignore
-        except configparser.Error as e:
+        except configparser.Error:
             print("Parser error reading", self.ini_path)
             traceback.print_exc()
             return '<INI ERROR>'
         except (KeyError, TypeError):
+            print("Key error reading", self.ini_path)
+            traceback.print_exc()
             return '<UNDEFINED>'
 
     @functools.cached_property
-    def name(self):
+    def name(self) -> str:
         return self.get_property('name')
 
     @functools.cached_property
-    def author(self):
+    def author(self) -> str:
         return self.get_property('author')
 
     @functools.cached_property
@@ -132,7 +136,7 @@ class RoaOrderFile:
     def check_file_header(self, file: bytes) -> bool:
         return file[:9] == self.header
 
-    def load_from_disk(self):
+    def load_from_disk(self) -> None:
         with open(self.roa_path, 'rb') as fp:
             data: bytes = fp.read()
 
@@ -143,7 +147,7 @@ class RoaOrderFile:
         assert data == self.encode_bytes()
         assert not self.is_dirty()
 
-    def load_bytes(self, data: bytes):
+    def load_bytes(self, data: bytes) -> None:
         view: bytes = data
         groups = []
         curr_group = []
@@ -168,7 +172,7 @@ class RoaOrderFile:
                 expected_count = reader.read_int()
                 reader.read_null(2)
             else:
-                group_type = self.group_labels[len(groups)-1]
+                group_type = self.group_labels[len(groups) - 1]
                 curr_group.append(RoaEntry(value=string))
                 reader.read_null()
 
@@ -211,7 +215,7 @@ class RoaOrderFile:
         self.state_on_disk = frozendict(self.groups)
         assert not self.is_dirty()
 
-    def scan_for_new_chars(self):
+    def scan_for_new_chars(self) -> None:
         # 1. Find paths for all known entries
         all_entries = {*itertools.chain(*self.groups.values())}
         known_entry_dirs = {e.directory for e in all_entries}
@@ -270,7 +274,7 @@ class RoaCategoriesFile:
     def is_dirty(self) -> bool:
         return tuple(self.categories) != self.state_on_disk
 
-    def load_bytes(self, data: bytes):
+    def load_bytes(self, data: bytes) -> None:
         self.categories.clear()
         reader = BinReader(data)
         expected_count = reader.read_int()

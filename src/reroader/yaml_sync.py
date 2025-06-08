@@ -5,14 +5,14 @@ from collections import OrderedDict, defaultdict
 
 import ruamel.yaml
 
-from roa import RoaCategoriesFile, RoaCategory, RoaEntry, RoaOrderFile
+from .roa import RoaCategoriesFile, RoaCategory, RoaEntry, RoaOrderFile
 
 yaml = ruamel.yaml.YAML(typ='unsafe')
 yaml.default_flow_style = False
 yaml.width = 4096
 
 
-def sort_name(entry: RoaEntry):
+def sort_name(entry: RoaEntry) -> str:
     try:
         return entry.name.upper()  # type: ignore
     except:
@@ -61,7 +61,9 @@ def roa_zip_chars(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile) ->
 def load_yaml_state(order_roa: RoaOrderFile, categories_roa: RoaCategoriesFile):
     yaml_state: dict[str, list[str]] = {}
     if not os.path.isfile('sort.yaml'):
-        yaml.dump(yaml_state, roa_zip_chars(order_roa, categories_roa))
+        with open("sort.yaml", "w", encoding="utf-8") as fp:
+            yaml_state = {k: [repr(i) for i in v] for k, v in roa_zip_chars(order_roa, categories_roa).items()}
+            yaml.dump(yaml_state, fp)
 
     with open("sort.yaml", "r", encoding="utf-8") as fp:
         yaml_state = yaml.load(fp)
