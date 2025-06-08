@@ -41,6 +41,9 @@ class MainApp(tk.Tk):
         def frame_btns():
             frame_btns = tk.Frame(self)
 
+            btn_folder = ttk.Button(
+                frame_btns, text="Open ROA folder",
+                command=self.open_folder)
             btn_reload = ttk.Button(
                 frame_btns, text="🔄 Reload discarding changes",
                 command=self.load_state_from_roa)
@@ -49,10 +52,8 @@ class MainApp(tk.Tk):
                 command=self.save_state_to_roas,
                 underline=3
             )
-            # btn_exit = ttk.Button(
-            #     frame_btns, text="❌ Cancel discarding changes",
-            #     command=self.destroy)
 
+            btn_folder.pack(side=tk.LEFT)
             btn_reload.pack(side=tk.RIGHT)
             btn_export.pack(side=tk.RIGHT)
             return frame_btns
@@ -157,6 +158,10 @@ class MainApp(tk.Tk):
         categories_roa.save_file()
         self.is_dirty = False
         self.log("Saved groups and order to ROA")
+
+    def open_folder(self, event=None):  # noqa: ARG002
+        roa_dir = Path(f"{os.environ['LOCALAPPDATA']}/RivalsofAether/workshop")
+        os.startfile(roa_dir)  # noqa: S606
 
 
 if __name__ == '__main__':
