@@ -128,7 +128,8 @@ class RoaOrderFile:
 
         self.load_from_disk()
 
-        self.scan_for_new_chars()
+        self.prune_deleted_entries()
+        self.scan_for_new_entries()
 
     def is_dirty(self) -> bool:
         return self.groups != self.state_on_disk
@@ -215,7 +216,15 @@ class RoaOrderFile:
         self.state_on_disk = frozendict(self.groups)
         assert not self.is_dirty()
 
-    def scan_for_new_chars(self) -> None:
+    def prune_deleted_entries(self) -> None:
+        for label in self.group_labels:
+            for entry in [*self.groups[label]]:
+                if not os.path.exists(entry.directory):
+                    print("Entry has disappeared from disk:", entry.directory)
+                    self.groups[label].remove(entry)
+
+
+    def scan_for_new_entries(self) -> None:
         # 1. Find paths for all known entries
         all_entries = {*itertools.chain(*self.groups.values())}
         known_entry_dirs = {e.directory for e in all_entries}
