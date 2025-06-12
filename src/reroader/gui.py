@@ -17,7 +17,7 @@ _nogc = []
 if getattr(sys, 'frozen', False):
     bundle_root: str = sys._MEIPASS  # type: ignore
 elif __file__:
-    bundle_root = os.path.dirname(__file__)
+    bundle_root = "."
 
 
 class MainApp(tk.Tk):
@@ -136,6 +136,8 @@ class MainApp(tk.Tk):
 
     def load_state_from_roa(self) -> None:
         self.order_roa.load_from_disk()
+        self.order_roa.prune_deleted_entries()
+        self.order_roa.scan_for_new_entries()
 
         self.nested_state: dict[str, list[RoaEntry]] = roa_zip_chars(self.order_roa, self.categories_roa)
         self.category_order = list(self.nested_state.keys())
